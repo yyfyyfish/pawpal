@@ -6,6 +6,10 @@ import {
   type PatrolSurface,
   type SurfaceRestSpot
 } from "./patrolSurface";
+import {
+  petRectOverlapsAvoidanceZones,
+  type AvoidanceZone
+} from "./typingGuard";
 import type { PetBehavior, PetState, Point } from "./types";
 
 export type PatrolDirection = "left" | "right";
@@ -34,6 +38,8 @@ export interface PatrolPlannerInput {
   petSize?: number;
   restRoll?: number;
   roamTarget?: Point | null;
+  avoidanceZones?: AvoidanceZone[];
+  nowMs?: number;
 }
 
 export interface PatrolStep extends PatrolState {
@@ -95,6 +101,8 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     ? input.deltaMs
     : state.stableSurfaceMs + input.deltaMs;
   const frameProgress = state.frameProgress ?? 0;
+  const avoidanceZones = input.avoidanceZones ?? [];
+  const nowMs = input.nowMs ?? 0;
   const appRestSurface =
     input.restSurface ?? (input.surface.kind !== "screen-roam" ? input.surface : null);
   const lanePosition = clampToLane(state.position, input.surface, petSize);
@@ -157,7 +165,24 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     stableSurfaceMs >= MIN_SLEEP_SURFACE_STABLE_MS &&
     (input.restRoll ?? 1) < SLEEP_ROLL_THRESHOLD
   ) {
-    const restSpot = chooseRestSpot(appRestSurface, state.position.x);
+    const restSpot = chooseRestSpot(
+      appRestSurface,
+      state.position.x,
+      petSize,
+      avoidanceZones,
+      nowMs
+    );
+
+    if (!restSpot) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
+        frameProgress,
+        behavior: "look",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
 
     return {
       ...state,
@@ -190,7 +215,16 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   const speed = input.speedPxPerMs ?? DEFAULT_PATROL_SPEED_PX_PER_MS;
 
   if (input.surface.kind === "screen-roam") {
-    const target = state.roamTarget ?? input.roamTarget ?? screenRoamFallbackTarget(input.surface);
+    const requestedTarget =
+      state.roamTarget ?? input.roamTarget ?? screenRoamFallbackTarget(input.surface);
+    const target = safeRoamTarget(
+      requestedTarget,
+      state.position,
+      input.surface,
+      petSize,
+      avoidanceZones,
+      nowMs
+    );
     const nextPosition = moveToward(
       state.position,
       clampToRoamBounds(target, input.surface, petSize),
@@ -219,7 +253,14 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
 
   if (input.surface.kind !== "screen-edge") {
     const nextProgress = frameProgress + input.deltaMs * speed;
-    const pathPoint = positionPetOnSurfacePath(input.surface, nextProgress, "walking", petSize);
+    const pathPoint = safePathPoint(
+      input.surface,
+      nextProgress,
+      Math.max(petSize * 0.75, input.deltaMs * speed),
+      petSize,
+      avoidanceZones,
+      nowMs
+    );
 
     return {
       surfaceId: input.surface.id,
@@ -260,6 +301,74 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     behavior: reachedRight || reachedLeft ? "look" : "walk",
     facing: direction === "right" ? "right" : "left"
   };
+}
+
+function safeRoamTarget(
+  requestedTarget: Point,
+  current: Point,
+  surface: PatrolSurface,
+  petSize: number,
+  avoidanceZones: AvoidanceZone[],
+  nowMs: number
+): Point {
+  const target = clampToRoamBounds(requestedTarget, surface, petSize);
+  if (!overlapsAvoidance(target, petSize, avoidanceZones, nowMs)) return target;
+
+  return roamEscapeCandidates(surface, petSize)
+    .filter((candidate) => !overlapsAvoidance(candidate, petSize, avoidanceZones, nowMs))
+    .sort((a, b) => distance(b, current) - distance(a, current))[0] ?? target;
+}
+
+function safePathPoint(
+  surface: PatrolSurface,
+  progress: number,
+  sampleStep: number,
+  petSize: number,
+  avoidanceZones: AvoidanceZone[],
+  nowMs: number
+): ReturnType<typeof positionPetOnSurfacePath> {
+  for (let sample = 0; sample < 24; sample += 1) {
+    const candidate = positionPetOnSurfacePath(
+      surface,
+      progress + sample * sampleStep,
+      "walking",
+      petSize
+    );
+    if (!overlapsAvoidance(candidate.position, petSize, avoidanceZones, nowMs)) {
+      return candidate;
+    }
+  }
+
+  return positionPetOnSurfacePath(surface, progress, "walking", petSize);
+}
+
+function roamEscapeCandidates(surface: PatrolSurface, petSize: number): Point[] {
+  const left = surface.rect.x;
+  const top = surface.rect.y;
+  const right = surface.rect.x + surface.rect.width - petSize;
+  const bottom = surface.rect.y + surface.rect.height - petSize;
+  const centerX = left + (right - left) / 2;
+  const centerY = top + (bottom - top) / 2;
+
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: left, y: bottom },
+    { x: right, y: bottom },
+    { x: centerX, y: top },
+    { x: centerX, y: bottom },
+    { x: left, y: centerY },
+    { x: right, y: centerY }
+  ].map((candidate) => clampToRoamBounds(candidate, surface, petSize));
+}
+
+function overlapsAvoidance(
+  position: Point,
+  petSize: number,
+  avoidanceZones: AvoidanceZone[],
+  nowMs: number
+): boolean {
+  return petRectOverlapsAvoidanceZones(position, petSize, avoidanceZones, nowMs);
 }
 
 function moveToward(
@@ -314,8 +423,20 @@ function clampToLane(position: Point, surface: PatrolSurface, petSize: number): 
   return positionPetOnSurface(surface, position.x, "walking", petSize);
 }
 
-function chooseRestSpot(surface: PatrolSurface, currentX: number): SurfaceRestSpot {
-  return createSurfaceRestSpots(surface).reduce((nearest, spot) => {
-    return Math.abs(spot.x - currentX) < Math.abs(nearest.x - currentX) ? spot : nearest;
-  });
+function chooseRestSpot(
+  surface: PatrolSurface,
+  currentX: number,
+  petSize: number,
+  avoidanceZones: AvoidanceZone[],
+  nowMs: number
+): SurfaceRestSpot | null {
+  const spots = createSurfaceRestSpots(surface)
+    .sort((first, second) => Math.abs(first.x - currentX) - Math.abs(second.x - currentX));
+
+  return (
+    spots.find((spot) => {
+      const position = positionPetOnSurface(surface, spot.x, "sleeping", petSize);
+      return !overlapsAvoidance(position, petSize, avoidanceZones, nowMs);
+    }) ?? null
+  );
 }

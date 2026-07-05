@@ -12,6 +12,10 @@ import {
   planPatrolStep,
   type PatrolPlannerInput
 } from "../src/core/patrolPlanner";
+import {
+  createTypingAvoidanceZone,
+  petRectOverlapsAvoidanceZones
+} from "../src/core/typingGuard";
 
 const surface = createWindowTopSurface("front-window", {
   x: 100,
@@ -180,6 +184,107 @@ test("patrol planner can sleep on a stable app frame rest spot", () => {
   assert.equal(next.targetRestSpot?.kind, "center");
   assert.ok(next.position.y < surface.walkY);
   assert.ok(next.position.y + 96 > surface.walkY);
+});
+
+test("patrol planner avoids typing zones while roaming", () => {
+  const typingZone = createTypingAvoidanceZone(
+    {
+      x: 450,
+      y: 360,
+      width: 260,
+      height: 160,
+      source: "focused-element",
+      appName: "Notes"
+    },
+    { nowMs: 10_000, petSize: 96 }
+  )!;
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    position: { x: 360, y: 300 },
+    roamTarget: { x: 520, y: 390 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    deltaMs: 5_000,
+    petSize: 96,
+    speedPxPerMs: 0.2,
+    nowMs: 10_200,
+    avoidanceZones: [typingZone]
+  });
+
+  assert.equal(
+    petRectOverlapsAvoidanceZones(next.position, 96, [typingZone], 10_200),
+    false
+  );
+  assert.notDeepEqual(next.roamTarget, state.roamTarget);
+});
+
+test("patrol planner skips blocked app-frame path points", () => {
+  const typingZone = createTypingAvoidanceZone(
+    {
+      x: 120,
+      y: 40,
+      width: 220,
+      height: 140,
+      source: "focused-element",
+      appName: "Editor"
+    },
+    { nowMs: 20_000, petSize: 96 }
+  )!;
+
+  const next = planPatrolStep({
+    state: createInitialPatrolState(surface),
+    surface,
+    deltaMs: 1_000,
+    petSize: 96,
+    speedPxPerMs: 0.045,
+    nowMs: 20_100,
+    avoidanceZones: [typingZone]
+  });
+
+  assert.equal(
+    petRectOverlapsAvoidanceZones(next.position, 96, [typingZone], 20_100),
+    false
+  );
+  assert.ok(next.frameProgress > 45);
+});
+
+test("patrol planner chooses an unblocked rest spot while typing is active", () => {
+  const typingZone = createTypingAvoidanceZone(
+    {
+      x: 330,
+      y: 24,
+      width: 180,
+      height: 160,
+      source: "focused-element",
+      appName: "Editor"
+    },
+    { nowMs: 30_000, petSize: 96 }
+  )!;
+  const state = {
+    ...createInitialPatrolState(surface),
+    stableSurfaceMs: 9_000,
+    position: { x: 350, y: surface.walkY - 80 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface,
+    deltaMs: 500,
+    petSize: 96,
+    restRoll: 0.03,
+    nowMs: 30_200,
+    avoidanceZones: [typingZone]
+  });
+
+  assert.equal(next.mode, "sleeping");
+  assert.notEqual(next.targetRestSpot?.kind, "center");
+  assert.equal(
+    petRectOverlapsAvoidanceZones(next.position, 96, [typingZone], 30_200),
+    false
+  );
 });
 
 test("patrol planner wakes and resets when the app surface changes", () => {
