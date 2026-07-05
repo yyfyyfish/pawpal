@@ -82,6 +82,18 @@ test("patrol runtime roams the screen and treats apps as rest surfaces", async (
   assert.match(source, /createRandomRoamTarget/);
 });
 
+test("pet app refreshes typing guard zones for patrol planning", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /TYPING_GUARD_REFRESH_MS = 750/);
+  assert.match(source, /loadFocusedTypingBounds/);
+  assert.match(source, /createTypingAvoidanceZone/);
+  assert.match(source, /typingAvoidanceZones/);
+  assert.match(source, /refreshTypingGuard/);
+  assert.match(source, /avoidanceZones: typingAvoidanceZones/);
+  assert.match(source, /nowMs: time/);
+});
+
 test("reset position command restores default window placement", () => {
   const reset = applyPetCommand(
     { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },

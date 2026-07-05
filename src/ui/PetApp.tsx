@@ -31,7 +31,10 @@ import {
   sendPetCommandToPet,
   startPetDrag
 } from "./petWindow";
-import { loadFrontWindowSurface } from "./nativeSurfaces";
+import {
+  loadFocusedTypingBounds,
+  loadFrontWindowSurface
+} from "./nativeSurfaces";
 import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
 import { ANIMATIONS } from "../core/animations";
 import { SettingsApp } from "./SettingsApp";
@@ -47,9 +50,15 @@ import {
   advanceCompanion,
   createInitialCompanionState
 } from "../core/companion";
+import {
+  createTypingAvoidanceZone,
+  isAvoidanceZoneActive,
+  type AvoidanceZone
+} from "../core/typingGuard";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
+const TYPING_GUARD_REFRESH_MS = 750;
 const REST_DECISION_MS = 3_000;
 const DRAG_SETTLE_MS = 900;
 const DRAG_SESSION_MS = 5_000;
@@ -244,10 +253,13 @@ export function PetApp() {
     let activeRestSurface: PatrolSurface | null = null;
     let patrolState: PatrolState | null = null;
     let refreshElapsedMs = SURFACE_REFRESH_MS;
+    let typingGuardRefreshElapsedMs = TYPING_GUARD_REFRESH_MS;
     let migrationElapsedMs = SURFACE_REFRESH_MS;
     let restDecisionElapsedMs = 0;
     let frontWindowMissingMs = 0;
     let handledDragAnchorVersion = dragAnchorVersion.current;
+    let typingAvoidanceZones: AvoidanceZone[] = [];
+    let typingGuardRequestVersion = 0;
 
     void loadDefaultSpriteAssets()
       .then((assets) => {
@@ -297,12 +309,36 @@ export function PetApp() {
         .catch(() => undefined);
     };
 
+    const refreshTypingGuard = (nowMs: number) => {
+      const requestVersion = (typingGuardRequestVersion += 1);
+
+      void loadFocusedTypingBounds()
+        .then((bounds) => {
+          if (requestVersion !== typingGuardRequestVersion) return;
+
+          const zone = bounds
+            ? createTypingAvoidanceZone(bounds, {
+                nowMs,
+                petSize: canvasSize
+              })
+            : null;
+          typingAvoidanceZones = zone ? [zone] : [];
+        })
+        .catch(() => {
+          if (requestVersion === typingGuardRequestVersion) {
+            typingAvoidanceZones = [];
+          }
+        });
+    };
+
     refreshPatrolSurface();
+    refreshTypingGuard(performance.now());
 
     const frame = (time: number) => {
       const deltaMs = time - previousTime;
       previousTime = time;
       refreshElapsedMs += deltaMs;
+      typingGuardRefreshElapsedMs += deltaMs;
       migrationElapsedMs += deltaMs;
       restDecisionElapsedMs += deltaMs;
 
@@ -310,6 +346,14 @@ export function PetApp() {
         refreshElapsedMs = 0;
         refreshPatrolSurface();
       }
+
+      if (typingGuardRefreshElapsedMs >= TYPING_GUARD_REFRESH_MS) {
+        typingGuardRefreshElapsedMs = 0;
+        refreshTypingGuard(time);
+      }
+      typingAvoidanceZones = typingAvoidanceZones.filter((zone) => {
+        return isAvoidanceZoneActive(zone, time);
+      });
 
       petState.current = tickPet(petState.current, {
         deltaMs,
@@ -353,6 +397,8 @@ export function PetApp() {
             activeSurface.kind === "screen-roam" && !patrolState.roamTarget
               ? createRandomRoamTarget(activeSurface, canvasSize)
               : undefined,
+          avoidanceZones: typingAvoidanceZones,
+          nowMs: time,
           speedPxPerMs: PATROL_SPEEDS[interaction.preferences.patrolIntensity]
         });
         patrolState = patrolStep;
