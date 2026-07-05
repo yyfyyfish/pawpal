@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { nativeWindowBoundsToSurface } from "../src/ui/nativeSurfaces";
+import {
+  nativeTypingBoundsOrNull,
+  nativeWindowBoundsToSurface
+} from "../src/ui/nativeSurfaces";
 
 test("native window bounds map to a front-window patrol surface", () => {
   const surface = nativeWindowBoundsToSurface({
@@ -41,4 +44,63 @@ test("tauri exposes a frontmost window bounds command", async () => {
   assert.match(source, /AXFullScreen/);
   assert.match(source, /bestArea/);
   assert.doesNotMatch(source, /fn frontmost_window_bounds\(\) -> Option<NativeWindowBounds> \{\s*None\s*\}/);
+});
+
+test("native typing bounds normalize only privacy-safe focused geometry", () => {
+  assert.deepEqual(
+    nativeTypingBoundsOrNull({
+      x: 240,
+      y: 320,
+      width: 620,
+      height: 180,
+      source: "focused-element",
+      role: "AXTextArea",
+      appName: "Terminal"
+    }),
+    {
+      x: 240,
+      y: 320,
+      width: 620,
+      height: 180,
+      source: "focused-element",
+      role: "AXTextArea",
+      appName: "Terminal"
+    }
+  );
+
+  assert.equal(
+    nativeTypingBoundsOrNull({
+      x: 240,
+      y: 320,
+      width: 0,
+      height: 180,
+      source: "focused-element"
+    }),
+    null
+  );
+  assert.equal(
+    nativeTypingBoundsOrNull({
+      x: 240,
+      y: 320,
+      width: 620,
+      height: 180,
+      source: "window"
+    }),
+    null
+  );
+});
+
+test("tauri exposes focused typing bounds without reading typed text", async () => {
+  const source = await readFile("src-tauri/src/lib.rs", "utf8");
+
+  assert.match(source, /focused_typing_bounds/);
+  assert.match(source, /NativeTypingBounds/);
+  assert.match(source, /generate_handler!\[[^\]]*focused_typing_bounds/s);
+  assert.match(source, /AXFocusedUIElement/);
+  assert.match(source, /AXTextArea/);
+  assert.match(source, /AXTextField/);
+  assert.match(source, /AXEditable/);
+  assert.match(source, /parse_typing_bounds/);
+  assert.doesNotMatch(source, /AXValue/);
+  assert.doesNotMatch(source, /AXSelectedText/);
 });
