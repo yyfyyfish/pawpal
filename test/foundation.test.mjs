@@ -14,6 +14,14 @@ test("package exposes phase-0 foundation scripts", async () => {
   assert.equal(packageJson.scripts.dev, "tauri dev");
 });
 
+test("tauri dev server uses the same loopback host as vite", async () => {
+  const packageJson = await readJson("package.json");
+  const config = await readJson("src-tauri/tauri.conf.json");
+
+  assert.match(packageJson.scripts["dev:vite"], /--host 127\.0\.0\.1/);
+  assert.equal(config.build.devUrl, "http://127.0.0.1:1420");
+});
+
 test("tauri pet window is configured as a desktop overlay", async () => {
   const config = await readJson("src-tauri/tauri.conf.json");
   const petWindow = config.app.windows.find((window) => window.label === "pet");
