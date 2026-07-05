@@ -1,0 +1,63 @@
+import assert from "node:assert/strict";
+import { access, readFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import test from "node:test";
+import {
+  DEFAULT_CAT_ATLAS_PATH,
+  DEFAULT_SOUND_CUES,
+  resolveAnimationFrames,
+  validateSpriteAtlas
+} from "../src/core/spriteAtlas";
+import type { PetBehavior } from "../src/core/types";
+
+const REQUIRED_ANIMATIONS: PetBehavior[] = [
+  "idle",
+  "walk",
+  "sleep",
+  "wake",
+  "look",
+  "meow",
+  "scratch",
+  "groom",
+  "pounce"
+];
+
+test("default cat atlas metadata covers every Phase 3 animation", async () => {
+  const atlas = JSON.parse(await readFile(`public${DEFAULT_CAT_ATLAS_PATH}`, "utf8"));
+  const result = validateSpriteAtlas(atlas, REQUIRED_ANIMATIONS);
+
+  assert.deepEqual(result, []);
+
+  for (const animation of REQUIRED_ANIMATIONS) {
+    const frames = resolveAnimationFrames(atlas, animation);
+    assert.ok(frames.length > 0, `${animation} should resolve at least one frame`);
+  }
+});
+
+test("default cat sprite sheet and sound cues are local assets", async () => {
+  const atlas = JSON.parse(await readFile(`public${DEFAULT_CAT_ATLAS_PATH}`, "utf8"));
+
+  await access(`public${atlas.image}`, constants.R_OK);
+
+  for (const cue of DEFAULT_SOUND_CUES) {
+    await access(`public${cue.path}`, constants.R_OK);
+  }
+});
+
+test("atlas validation reports missing animations and frames", () => {
+  const errors = validateSpriteAtlas(
+    {
+      image: "/assets/sprites/cat/missing.png",
+      cellWidth: 32,
+      cellHeight: 32,
+      frames: {},
+      animations: {}
+    },
+    ["idle"]
+  );
+
+  assert.deepEqual(errors, [
+    "missing frame idle-0",
+    "missing animation idle"
+  ]);
+});

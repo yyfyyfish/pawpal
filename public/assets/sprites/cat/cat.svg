@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288" height="32" viewBox="0 0 288 32" shape-rendering="crispEdges">
+  <defs>
+    <g id="cat">
+      <path fill="#2f3136" d="M7 19h18v7H7zM20 9h8v10h-8zM19 9l3-6 3 6zM25 9l4-5 1 8z"/>
+      <path fill="#2f3136" d="M7 20H3v-3h4z"/>
+      <path fill="#f4b6c2" d="M25 15h2v2h-2z"/>
+      <path fill="#fff" d="M22 13h1v1h-1zM27 13h1v1h-1z"/>
+    </g>
+  </defs>
+  <use href="#cat" x="0" y="0"/>
+  <use href="#cat" x="32" y="0"/>
+  <rect x="39" y="22" width="18" height="5" fill="#2f3136"/>
+  <use href="#cat" x="64" y="0"/>
+  <rect x="72" y="22" width="20" height="5" fill="#2f3136"/>
+  <path d="M86 13h8v1h-8z" fill="#fff"/>
+  <use href="#cat" x="96" y="0"/>
+  <path d="M116 11h1v3h-1zM121 11h1v3h-1z" fill="#fff"/>
+  <use href="#cat" x="128" y="0"/>
+  <path d="M151 12h3v1h-3z" fill="#fff"/>
+  <use href="#cat" x="160" y="0"/>
+  <path d="M187 17h3v3h-3z" fill="#f4b6c2"/>
+  <use href="#cat" x="192" y="0"/>
+  <path d="M222 17h5v1h-5zM222 20h5v1h-5zM222 23h5v1h-5z" fill="#cfd3dc"/>
+  <use href="#cat" x="224" y="0"/>
+  <path d="M239 18h4v2h-4z" fill="#f4b6c2"/>
+  <use href="#cat" x="256" y="0"/>
+  <path d="M263 25h19v2h-19z" fill="#2f3136"/>
+</svg>

@@ -13,6 +13,8 @@ import {
   saveInteractionState,
   startPetDrag
 } from "./petWindow";
+import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
+import { ANIMATIONS } from "../core/animations";
 
 const CANVAS_SIZE = 192;
 
@@ -70,8 +72,14 @@ export function PetApp() {
     if (!canvas) return;
 
     const renderer = createSpriteRenderer(canvas);
+    const soundPlayer = createSoundPlayer();
     let previousTime = performance.now();
     let frameId = 0;
+    let previousCue: string | undefined;
+
+    void loadDefaultSpriteAssets()
+      .then((assets) => renderer.setSpriteAssets(assets))
+      .catch(() => undefined);
 
     const frame = (time: number) => {
       const deltaMs = time - previousTime;
@@ -88,6 +96,13 @@ export function PetApp() {
       });
 
       renderer.draw(petState.current);
+
+      const cue = ANIMATIONS[petState.current.behavior]?.soundCue;
+      if (cue && cue !== previousCue) {
+        soundPlayer.play(cue, interaction.preferences.muted);
+      }
+      previousCue = cue;
+
       frameId = requestAnimationFrame(frame);
     };
 
