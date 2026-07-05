@@ -39,6 +39,8 @@ test("tauri exposes a frontmost window bounds command", async () => {
   const source = await readFile("src-tauri/src/lib.rs", "utf8");
 
   assert.match(source, /frontmost_window_bounds/);
+  assert.match(source, /async fn frontmost_window_bounds\(\)/);
+  assert.match(source, /spawn_blocking\(query_frontmost_window_bounds\)/);
   assert.match(source, /generate_handler!\[[^\]]*frontmost_window_bounds/s);
   assert.match(source, /osascript/);
   assert.match(source, /AXFullScreen/);
@@ -94,6 +96,8 @@ test("tauri exposes focused typing bounds without reading typed text", async () 
   const source = await readFile("src-tauri/src/lib.rs", "utf8");
 
   assert.match(source, /focused_typing_bounds/);
+  assert.match(source, /async fn focused_typing_bounds\(\)/);
+  assert.match(source, /spawn_blocking\(query_focused_typing_bounds\)/);
   assert.match(source, /NativeTypingBounds/);
   assert.match(source, /generate_handler!\[[^\]]*focused_typing_bounds/s);
   assert.match(source, /AXFocusedUIElement/);

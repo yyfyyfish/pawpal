@@ -2,6 +2,7 @@ import {
   LogicalPosition,
   LogicalSize,
   availableMonitors,
+  cursorPosition,
   getCurrentWindow
 } from "@tauri-apps/api/window";
 import { emitTo } from "@tauri-apps/api/event";
@@ -26,6 +27,7 @@ import {
   createScreenRoamSurface,
   type PatrolSurface
 } from "../core/patrolSurface";
+import type { OverlayStage } from "../core/overlayStage";
 import {
   normalizeCompanionMemory,
   toStoredCompanionMemory,
@@ -70,17 +72,45 @@ export async function saveCompanionMemory(memory: CompanionMemory): Promise<void
   await store.save();
 }
 
-export async function applyWindowState(state: InteractionState): Promise<void> {
+export async function applyWindowState(state: InteractionState): Promise<OverlayStage | null> {
   const window = getCurrentWindow();
-  const size = BASE_WINDOW_SIZE * state.preferences.scale;
-  const position = await getClampedWindowPosition(state.position, {
-    width: size,
-    height: size
-  });
+  const stage = await loadPetOverlayStage(state.position);
 
-  await window.setIgnoreCursorEvents(state.preferences.clickThrough);
-  await window.setSize(new LogicalSize(size, size));
-  await window.setPosition(new LogicalPosition(position.x, position.y));
+  if (!stage) {
+    const size = BASE_WINDOW_SIZE * state.preferences.scale;
+    const position = await getClampedWindowPosition(state.position, {
+      width: size,
+      height: size
+    });
+
+    await window.setIgnoreCursorEvents(true);
+    await window.setSize(new LogicalSize(size, size));
+    await window.setPosition(new LogicalPosition(position.x, position.y));
+    return null;
+  }
+
+  await window.setIgnoreCursorEvents(true);
+  await window.setSize(new LogicalSize(stage.width, stage.height));
+  await window.setPosition(new LogicalPosition(stage.x, stage.y));
+  return stage;
+}
+
+export async function setPetWindowCursorIgnoring(ignore: boolean): Promise<void> {
+  await getCurrentWindow().setIgnoreCursorEvents(ignore);
+}
+
+export async function loadCursorLogicalPosition(): Promise<Point> {
+  const window = getCurrentWindow();
+  const [position, scaleFactor] = await Promise.all([
+    cursorPosition(),
+    window.scaleFactor()
+  ]);
+  const logical = position.toLogical(scaleFactor);
+
+  return {
+    x: logical.x,
+    y: logical.y
+  };
 }
 
 export async function applyLaunchAtLogin(enabled: boolean): Promise<void> {
@@ -91,10 +121,6 @@ export async function applyLaunchAtLogin(enabled: boolean): Promise<void> {
   if (!enabled && current) {
     await disable();
   }
-}
-
-export async function startPetDrag(): Promise<void> {
-  await getCurrentWindow().startDragging();
 }
 
 export async function listenForPetCommands(
@@ -114,22 +140,6 @@ export async function listenForPetCommands(
 
 export async function sendPetCommandToPet(command: PetCommand): Promise<void> {
   await emitTo("pet", COMMAND_EVENT, command);
-}
-
-export async function listenForPetMoves(
-  onMove: (position: Point) => void
-): Promise<() => void> {
-  const window = getCurrentWindow();
-
-  return window.onMoved(async (event) => {
-    const scaleFactor = await window.scaleFactor();
-    const logicalPosition = event.payload.toLogical(scaleFactor);
-
-    onMove({
-      x: logicalPosition.x,
-      y: logicalPosition.y
-    });
-  });
 }
 
 export async function loadScreenEdgePatrolSurfaces(
@@ -154,8 +164,32 @@ export async function loadScreenEdgePatrolSurfaces(
 }
 
 export async function loadScreenPatrolSurfaces(position: Point): Promise<PatrolSurface[]> {
+  const normalizedMonitors = await loadLogicalMonitors();
+  const monitor = chooseNearestMonitor(position, normalizedMonitors);
+
+  if (!monitor) return [];
+
+  const safeArea = getSafeArea(monitor);
+  return [createScreenRoamSurface(safeArea), ...createScreenEdgeSurfaces(safeArea)];
+}
+
+export async function loadPetOverlayStage(position: Point): Promise<OverlayStage | null> {
+  const normalizedMonitors = await loadLogicalMonitors();
+  const monitor = chooseNearestMonitor(position, normalizedMonitors);
+  if (!monitor) return null;
+
+  return {
+    x: monitor.x,
+    y: monitor.y,
+    width: monitor.width,
+    height: monitor.height
+  };
+}
+
+async function loadLogicalMonitors() {
   const monitors = await availableMonitors();
-  const normalizedMonitors = monitors.map((candidate) => {
+
+  return monitors.map((candidate) => {
     const logicalPosition = candidate.position.toLogical(candidate.scaleFactor);
     const logicalSize = candidate.size.toLogical(candidate.scaleFactor);
 
@@ -167,12 +201,6 @@ export async function loadScreenPatrolSurfaces(position: Point): Promise<PatrolS
       scaleFactor: candidate.scaleFactor
     };
   });
-  const monitor = chooseNearestMonitor(position, normalizedMonitors);
-
-  if (!monitor) return [];
-
-  const safeArea = getSafeArea(monitor);
-  return [createScreenRoamSurface(safeArea), ...createScreenEdgeSurfaces(safeArea)];
 }
 
 export function reduceInteractionState(

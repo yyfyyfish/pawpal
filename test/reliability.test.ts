@@ -65,6 +65,20 @@ test("runtime source does not introduce remote network calls", async () => {
   }
 });
 
+test("pet window uses a stable monitor overlay for smooth motion", async () => {
+  const source = await readFile("src/ui/petWindow.ts", "utf8");
+  const capability = await readFile("src-tauri/capabilities/default.json", "utf8");
+
+  assert.match(source, /loadPetOverlayStage/);
+  assert.match(source, /setSize\(new LogicalSize\(stage\.width, stage\.height\)\)/);
+  assert.match(source, /setPosition\(new LogicalPosition\(stage\.x, stage\.y\)\)/);
+  assert.match(source, /width: monitor\.width/);
+  assert.match(source, /height: monitor\.height/);
+  assert.match(source, /cursorPosition/);
+  assert.match(source, /setPetWindowCursorIgnoring/);
+  assert.match(capability, /core:window:allow-cursor-position/);
+});
+
 test("macOS reliability QA checklist is documented", async () => {
   const checklist = await readFile("docs/macos-qa.md", "utf8");
 

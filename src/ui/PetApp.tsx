@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createInitialPetState, tickPet } from "../core/behavior";
 import {
@@ -21,15 +21,15 @@ import {
   applyWindowState,
   applyLaunchAtLogin,
   listenForPetCommands,
-  listenForPetMoves,
   loadCompanionMemory,
+  loadCursorLogicalPosition,
   loadScreenPatrolSurfaces,
   loadInteractionState,
   reduceInteractionState,
   saveCompanionMemory,
   saveInteractionState,
-  sendPetCommandToPet,
-  startPetDrag
+  setPetWindowCursorIgnoring,
+  sendPetCommandToPet
 } from "./petWindow";
 import {
   loadFocusedTypingBounds,
@@ -55,15 +55,22 @@ import {
   isAvoidanceZoneActive,
   type AvoidanceZone
 } from "../core/typingGuard";
+import { advanceTrajectoryPosition } from "../core/trajectory";
+import {
+  isCursorInsidePetHitbox,
+  toOverlayLocalPosition
+} from "../core/overlayStage";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
 const TYPING_GUARD_REFRESH_MS = 750;
+const PATROL_TRAJECTORY_MAX_SPEED_PX_PER_MS = 0.25;
+const CURSOR_HIT_TEST_MS = 120;
+const MAX_ANIMATION_DELTA_MS = 32;
 const REST_DECISION_MS = 3_000;
 const DRAG_SETTLE_MS = 900;
 const DRAG_SESSION_MS = 5_000;
 const PETTING_AFTER_DRAG_SUPPRESS_MS = 900;
-const PROGRAMMATIC_MOVE_WINDOW_MS = 1_000;
 const PATROL_SPEEDS = {
   lazy: 0.025,
   normal: 0.045,
@@ -80,14 +87,15 @@ export function PetApp() {
   const pendingPettingReaction = useRef<PettingReaction | null>(null);
   const companionState = useRef(createInitialCompanionState());
   const manualDragging = useRef(false);
+  const manualDragOffset = useRef<Point | null>(null);
   const manualDragAnchor = useRef<Point | null>(null);
   const pendingManualDragAnchor = useRef<Point | null>(null);
   const dragAnchorVersion = useRef(0);
   const dragInteractionUntil = useRef(0);
   const ignorePettingUntil = useRef(0);
-  const programmaticMoveTarget = useRef<Point | null>(null);
-  const programmaticMoveUntil = useRef(0);
   const dragSettleTimeout = useRef<number | null>(null);
+  const stageOrigin = useRef<Point>({ x: 0, y: 0 });
+  const renderedPetPosition = useRef<Point>(DEFAULT_WINDOW_POSITION);
   const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
@@ -107,6 +115,7 @@ export function PetApp() {
 
   const commitManualDragAnchor = () => {
     manualDragging.current = false;
+    manualDragOffset.current = null;
     dragInteractionUntil.current = 0;
     ignorePettingUntil.current = performance.now() + PETTING_AFTER_DRAG_SUPPRESS_MS;
     dragSettleTimeout.current = null;
@@ -128,29 +137,34 @@ export function PetApp() {
     setInteraction((current) => applyPetMove(current, anchor, "drag"));
   };
 
-  const beginManualDrag = () => {
+  const beginManualDrag = (event: PointerEvent<HTMLCanvasElement>) => {
     manualDragging.current = true;
     dragInteractionUntil.current = performance.now() + DRAG_SESSION_MS;
     ignorePettingUntil.current = dragInteractionUntil.current;
+    pendingManualDragAnchor.current = renderedPetPosition.current;
+    manualDragOffset.current = {
+      x: stageOrigin.current.x + event.clientX - renderedPetPosition.current.x,
+      y: stageOrigin.current.y + event.clientY - renderedPetPosition.current.y
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const noteProgrammaticMove = (position: Point) => {
-    programmaticMoveTarget.current = position;
-    programmaticMoveUntil.current = performance.now() + PROGRAMMATIC_MOVE_WINDOW_MS;
+  const updateManualDrag = (event: PointerEvent<HTMLCanvasElement>) => {
+    const offset = manualDragOffset.current;
+    if (!offset) return;
+
+    pendingManualDragAnchor.current = {
+      x: stageOrigin.current.x + event.clientX - offset.x,
+      y: stageOrigin.current.y + event.clientY - offset.y
+    };
+    ignorePettingUntil.current = performance.now() + PETTING_AFTER_DRAG_SUPPRESS_MS;
   };
 
-  const isProgrammaticMoveEcho = (position: Point) => {
-    const target = programmaticMoveTarget.current;
-    if (!target || performance.now() > programmaticMoveUntil.current) {
-      programmaticMoveTarget.current = null;
-      return false;
+  const endManualDrag = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
-
-    const matched = Math.hypot(position.x - target.x, position.y - target.y) <= 2;
-    if (matched) {
-      programmaticMoveTarget.current = null;
-    }
-    return matched;
+    scheduleDragSettle();
   };
 
   useEffect(() => {
@@ -193,7 +207,13 @@ export function PetApp() {
 
   useEffect(() => {
     if (windowLabel === "pet") {
-      void applyWindowState(interaction).catch(() => undefined);
+      void applyWindowState(interaction)
+        .then((stage) => {
+          if (stage) {
+            stageOrigin.current = { x: stage.x, y: stage.y };
+          }
+        })
+        .catch(() => undefined);
     }
     void saveInteractionState(interaction).catch(() => undefined);
     void applyLaunchAtLogin(interaction.preferences.launchAtLogin).catch(() => undefined);
@@ -201,7 +221,6 @@ export function PetApp() {
 
   useEffect(() => {
     let unlistenCommands: (() => void) | undefined;
-    let unlistenMoves: (() => void) | undefined;
 
     void listenForPetCommands((command) => {
       setInteraction((current) => reduceInteractionState(current, command));
@@ -209,29 +228,8 @@ export function PetApp() {
       unlistenCommands = unlisten;
     });
 
-    if (windowLabel === "pet") {
-      void listenForPetMoves((position) => {
-        if (isProgrammaticMoveEcho(position)) {
-          setInteraction((current) => applyPetMove(current, position));
-          return;
-        }
-
-        if (manualDragging.current || performance.now() <= dragInteractionUntil.current) {
-          pendingManualDragAnchor.current = position;
-          ignorePettingUntil.current = performance.now() + PETTING_AFTER_DRAG_SUPPRESS_MS;
-          scheduleDragSettle();
-          return;
-        }
-
-        setInteraction((current) => applyPetMove(current, position));
-      }).then((unlisten) => {
-        unlistenMoves = unlisten;
-      });
-    }
-
     return () => {
       unlistenCommands?.();
-      unlistenMoves?.();
       if (dragSettleTimeout.current !== null) {
         window.clearTimeout(dragSettleTimeout.current);
       }
@@ -252,6 +250,7 @@ export function PetApp() {
     let activeSurface: PatrolSurface | null = null;
     let activeRestSurface: PatrolSurface | null = null;
     let patrolState: PatrolState | null = null;
+    let visiblePatrolPosition: Point | null = null;
     let refreshElapsedMs = SURFACE_REFRESH_MS;
     let typingGuardRefreshElapsedMs = TYPING_GUARD_REFRESH_MS;
     let migrationElapsedMs = SURFACE_REFRESH_MS;
@@ -260,6 +259,45 @@ export function PetApp() {
     let handledDragAnchorVersion = dragAnchorVersion.current;
     let typingAvoidanceZones: AvoidanceZone[] = [];
     let typingGuardRequestVersion = 0;
+    let patrolSurfaceRefreshInFlight = false;
+    let typingGuardRefreshInFlight = false;
+    let disposed = false;
+    let cursorHitTestElapsedMs = CURSOR_HIT_TEST_MS;
+    let ignoringCursorEvents: boolean | null = null;
+
+    const renderPetAt = (position: Point) => {
+      renderedPetPosition.current = position;
+      const localPosition = toOverlayLocalPosition(stageOrigin.current, position);
+      canvas.style.transform = `translate3d(${localPosition.x}px, ${localPosition.y}px, 0)`;
+    };
+
+    const setCursorIgnoring = (ignore: boolean) => {
+      if (ignoringCursorEvents === ignore) return;
+
+      ignoringCursorEvents = ignore;
+      void setPetWindowCursorIgnoring(ignore).catch(() => undefined);
+    };
+
+    const refreshCursorHandling = () => {
+      if (interaction.preferences.clickThrough) {
+        setCursorIgnoring(true);
+        return;
+      }
+
+      if (manualDragging.current) {
+        setCursorIgnoring(false);
+        return;
+      }
+
+      void loadCursorLogicalPosition()
+        .then((cursor) => {
+          if (disposed) return;
+          setCursorIgnoring(
+            !isCursorInsidePetHitbox(cursor, renderedPetPosition.current, canvasSize)
+          );
+        })
+        .catch(() => setCursorIgnoring(true));
+    };
 
     void loadDefaultSpriteAssets()
       .then((assets) => {
@@ -277,9 +315,13 @@ export function PetApp() {
         return;
       }
 
+      if (patrolSurfaceRefreshInFlight) return;
+      patrolSurfaceRefreshInFlight = true;
+
+      const surfaceAnchor = renderedPetPosition.current;
       void Promise.all([
         loadFrontWindowSurface(),
-        loadScreenPatrolSurfaces(interaction.position)
+        loadScreenPatrolSurfaces(surfaceAnchor)
       ])
         .then(([frontWindow, fallbackSurfaces]) => {
           if (fallbackSurfaces.length === 0) return;
@@ -302,11 +344,15 @@ export function PetApp() {
             patrolState = manualDragAnchor.current
               ? createAnchoredPatrolState(nextSurface, manualDragAnchor.current, canvasSize)
               : createInitialPatrolState(nextSurface);
+            visiblePatrolPosition = patrolState.position;
             handledDragAnchorVersion = dragAnchorVersion.current;
             migrationElapsedMs = 0;
           }
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          patrolSurfaceRefreshInFlight = false;
+        });
     };
 
     const refreshTypingGuard = (nowMs: number) => {
@@ -315,6 +361,8 @@ export function PetApp() {
         return;
       }
 
+      if (typingGuardRefreshInFlight) return;
+      typingGuardRefreshInFlight = true;
       const requestVersion = (typingGuardRequestVersion += 1);
 
       void loadFocusedTypingBounds()
@@ -333,6 +381,9 @@ export function PetApp() {
           if (requestVersion === typingGuardRequestVersion) {
             typingAvoidanceZones = [];
           }
+        })
+        .finally(() => {
+          typingGuardRefreshInFlight = false;
         });
     };
 
@@ -341,11 +392,13 @@ export function PetApp() {
 
     const frame = (time: number) => {
       const deltaMs = time - previousTime;
+      const animationDeltaMs = Math.min(Math.max(deltaMs, 0), MAX_ANIMATION_DELTA_MS);
       previousTime = time;
       refreshElapsedMs += deltaMs;
       typingGuardRefreshElapsedMs += deltaMs;
       migrationElapsedMs += deltaMs;
       restDecisionElapsedMs += deltaMs;
+      cursorHitTestElapsedMs += deltaMs;
 
       if (refreshElapsedMs >= SURFACE_REFRESH_MS) {
         refreshElapsedMs = 0;
@@ -363,7 +416,7 @@ export function PetApp() {
       });
 
       petState.current = tickPet(petState.current, {
-        deltaMs,
+        deltaMs: animationDeltaMs,
         preferences: interaction.preferences,
         cursor: null,
         screen: {
@@ -372,7 +425,18 @@ export function PetApp() {
         }
       });
 
-      if (interaction.preferences.patrolEnabled && activeSurface && !manualDragging.current) {
+      if (manualDragging.current) {
+        const dragPosition =
+          pendingManualDragAnchor.current ?? visiblePatrolPosition ?? renderedPetPosition.current;
+        visiblePatrolPosition = dragPosition;
+        petState.current = {
+          ...petState.current,
+          behavior: "look",
+          target: null,
+          position: dragPosition,
+          elapsedInStateMs: 0
+        };
+      } else if (interaction.preferences.patrolEnabled && activeSurface) {
         patrolState ??= createInitialPatrolState(activeSurface);
         if (
           manualDragAnchor.current &&
@@ -391,6 +455,7 @@ export function PetApp() {
             position: patrolState.position,
             elapsedInStateMs: 0
           };
+          visiblePatrolPosition = patrolState.position;
         }
         const activeTypingAvoidanceZones = interaction.preferences.typingGuardEnabled
           ? typingAvoidanceZones
@@ -398,7 +463,7 @@ export function PetApp() {
         const patrolStep = planPatrolStep({
           state: patrolState,
           surface: activeSurface,
-          deltaMs,
+          deltaMs: animationDeltaMs,
           petSize: canvasSize,
           restRoll:
             restDecisionElapsedMs >= REST_DECISION_MS ? Math.random() : undefined,
@@ -412,23 +477,31 @@ export function PetApp() {
           speedPxPerMs: PATROL_SPEEDS[interaction.preferences.patrolIntensity]
         });
         patrolState = patrolStep;
+        visiblePatrolPosition = advanceTrajectoryPosition(
+          visiblePatrolPosition ?? patrolStep.position,
+          patrolStep.position,
+          animationDeltaMs,
+          { maxSpeedPxPerMs: PATROL_TRAJECTORY_MAX_SPEED_PX_PER_MS }
+        );
         restDecisionElapsedMs =
           restDecisionElapsedMs >= REST_DECISION_MS ? 0 : restDecisionElapsedMs;
         petState.current = {
           ...petState.current,
           behavior: patrolStep.behavior,
           facing: patrolStep.facing,
-          position: patrolStep.position
+          position: visiblePatrolPosition
         };
-        noteProgrammaticMove(patrolStep.position);
-        void applyWindowState({
-          ...interaction,
-          position: patrolStep.position
-        }).catch(() => undefined);
+      } else {
+        const restingPosition = manualDragAnchor.current ?? interaction.position;
+        visiblePatrolPosition = restingPosition;
+        petState.current = {
+          ...petState.current,
+          position: restingPosition
+        };
       }
 
       const companionResult = advanceCompanion(companionState.current, {
-        deltaMs,
+        deltaMs: animationDeltaMs,
         currentBehavior: petState.current.behavior,
         energyPreference: interaction.preferences.energy,
         pettingReaction: pendingPettingReaction.current,
@@ -448,6 +521,12 @@ export function PetApp() {
 
       if (companionResult.memoryChanged) {
         void saveCompanionMemory(companionResult.state.memory).catch(() => undefined);
+      }
+
+      renderPetAt(petState.current.position);
+      if (cursorHitTestElapsedMs >= CURSOR_HIT_TEST_MS) {
+        cursorHitTestElapsedMs = 0;
+        refreshCursorHandling();
       }
 
       renderer.draw(petState.current);
@@ -472,7 +551,10 @@ export function PetApp() {
     };
 
     frameId = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(frameId);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frameId);
+    };
   }, [interaction, windowLabel]);
 
   if (windowLabel === "settings") {
@@ -498,17 +580,19 @@ export function PetApp() {
           width: `${canvasSize}px`,
           height: `${canvasSize}px`
         }}
-        onPointerDown={() => {
+        onPointerDown={(event) => {
           if (!interaction.preferences.clickThrough) {
-            beginManualDrag();
-            void startPetDrag().catch(() => undefined);
+            beginManualDrag(event);
           }
         }}
-        onPointerUp={scheduleDragSettle}
-        onPointerCancel={scheduleDragSettle}
+        onPointerUp={endManualDrag}
+        onPointerCancel={endManualDrag}
         onPointerMove={(event) => {
           if (interaction.preferences.clickThrough) return;
-          if (manualDragging.current) return;
+          if (manualDragging.current) {
+            updateManualDrag(event);
+            return;
+          }
 
           const now = performance.now();
           if (now <= ignorePettingUntil.current) return;

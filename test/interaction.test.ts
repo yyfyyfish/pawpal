@@ -78,6 +78,7 @@ test("patrol runtime roams the screen and treats apps as rest surfaces", async (
 
   assert.match(source, /loadScreenPatrolSurfaces/);
   assert.match(source, /activeRestSurface/);
+  assert.match(source, /patrolSurfaceRefreshInFlight/);
   assert.match(source, /restSurface: activeRestSurface/);
   assert.match(source, /createRandomRoamTarget/);
 });
@@ -90,10 +91,28 @@ test("pet app refreshes typing guard zones for patrol planning", async () => {
   assert.match(source, /createTypingAvoidanceZone/);
   assert.match(source, /typingAvoidanceZones/);
   assert.match(source, /refreshTypingGuard/);
+  assert.match(source, /typingGuardRefreshInFlight/);
   assert.match(source, /interaction\.preferences\.typingGuardEnabled/);
   assert.match(source, /activeTypingAvoidanceZones/);
   assert.match(source, /avoidanceZones: activeTypingAvoidanceZones/);
   assert.match(source, /nowMs: time/);
+});
+
+test("pet app smooths patrol movement inside a stable overlay", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /advanceTrajectoryPosition/);
+  assert.match(source, /const MAX_ANIMATION_DELTA_MS = 32/);
+  assert.match(source, /const animationDeltaMs = Math\.min\(Math\.max\(deltaMs, 0\), MAX_ANIMATION_DELTA_MS\)/);
+  assert.match(source, /toOverlayLocalPosition/);
+  assert.match(source, /canvas\.style\.transform = `translate3d/);
+  assert.match(source, /visiblePatrolPosition/);
+  assert.match(source, /setPetWindowCursorIgnoring/);
+  assert.match(source, /isCursorInsidePetHitbox/);
+  assert.doesNotMatch(source, /windowMoveInFlight/);
+  assert.doesNotMatch(source, /scheduleWindowMove/);
+  assert.doesNotMatch(source, /applyWindowPosition/);
+  assert.doesNotMatch(source, /position: patrolStep\.position[\s\S]*applyWindowState/);
 });
 
 test("reset position command restores default window placement", () => {
@@ -130,15 +149,18 @@ test("pet app treats user dragging as a new patrol anchor", async () => {
   const source = await readFile("src/ui/PetApp.tsx", "utf8");
 
   assert.match(source, /manualDragAnchor/);
+  assert.match(source, /manualDragOffset/);
   assert.match(source, /pendingManualDragAnchor/);
   assert.match(source, /commitManualDragAnchor/);
+  assert.match(source, /updateManualDrag/);
   assert.match(source, /createAnchoredPatrolState/);
   assert.match(source, /applyPetMove\(current, anchor, "drag"\)/);
   assert.match(source, /dragAnchorVersion/);
-  assert.match(source, /!manualDragging\.current/);
+  assert.match(source, /if \(manualDragging\.current\)/);
   assert.match(source, /dragInteractionUntil/);
-  assert.match(source, /isProgrammaticMoveEcho/);
   assert.match(source, /ignorePettingUntil/);
+  assert.doesNotMatch(source, /startPetDrag/);
+  assert.doesNotMatch(source, /isProgrammaticMoveEcho/);
   assert.doesNotMatch(source, /setInteraction\(\(current\) => applyPetMove\(current, position, "drag"\)\)/);
 });
 

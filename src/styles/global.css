@@ -16,16 +16,20 @@ body {
 .pet-stage {
   width: 100vw;
   height: 100vh;
-  display: grid;
-  place-items: center;
+  position: relative;
   background: transparent;
 }
 
 .pet-canvas {
   width: 192px;
   height: 192px;
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   image-rendering: pixelated;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
 }
 
 .settings-shell {

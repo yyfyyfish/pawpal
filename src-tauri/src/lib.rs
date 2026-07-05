@@ -56,7 +56,22 @@ pub fn run() {
 }
 
 #[tauri::command]
-fn frontmost_window_bounds() -> Option<NativeWindowBounds> {
+async fn frontmost_window_bounds() -> Option<NativeWindowBounds> {
+    tauri::async_runtime::spawn_blocking(query_frontmost_window_bounds)
+        .await
+        .ok()
+        .flatten()
+}
+
+#[tauri::command]
+async fn focused_typing_bounds() -> Option<NativeTypingBounds> {
+    tauri::async_runtime::spawn_blocking(query_focused_typing_bounds)
+        .await
+        .ok()
+        .flatten()
+}
+
+fn query_frontmost_window_bounds() -> Option<NativeWindowBounds> {
     let script = r#"
 tell application "System Events"
   set frontApp to first application process whose frontmost is true
@@ -105,8 +120,7 @@ end tell
     parse_window_bounds(&String::from_utf8_lossy(&output.stdout))
 }
 
-#[tauri::command]
-fn focused_typing_bounds() -> Option<NativeTypingBounds> {
+fn query_focused_typing_bounds() -> Option<NativeTypingBounds> {
     let script = r#"
 tell application "System Events"
   set frontApp to first application process whose frontmost is true
