@@ -5,6 +5,7 @@ import {
   createScreenEdgeSurface,
   createSurfaceRestSpots,
   createWindowTopSurface,
+  positionPetOnSurfacePath,
   positionPetOnSurface,
   isPatrolSurface,
   type PatrolSurface
@@ -113,4 +114,24 @@ test("surface pose offsets make the cat overlap an app frame instead of floating
   assert.ok(walking.y + 120 > surface.walkY);
   assert.ok(sleeping.y > walking.y);
   assert.ok(sleeping.y + 120 > surface.walkY);
+});
+
+test("window surfaces expose a rectangular patrol path around the app frame", () => {
+  const surface = createWindowTopSurface("front-window:Editor", {
+    x: 100,
+    y: 80,
+    width: 700,
+    height: 480
+  });
+  const top = positionPetOnSurfacePath(surface, 0, "walking", 120);
+  const right = positionPetOnSurfacePath(surface, 652, "walking", 120);
+  const bottom = positionPetOnSurfacePath(surface, 1200, "walking", 120);
+  const left = positionPetOnSurfacePath(surface, 1788, "walking", 120);
+
+  assert.equal(top.edge, "top");
+  assert.equal(right.edge, "right");
+  assert.equal(bottom.edge, "bottom");
+  assert.equal(left.edge, "left");
+  assert.notEqual(top.position.y, bottom.position.y);
+  assert.notEqual(left.position.x, right.position.x);
 });

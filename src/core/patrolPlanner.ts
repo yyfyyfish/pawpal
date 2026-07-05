@@ -1,6 +1,8 @@
 import {
   createSurfaceRestSpots,
   positionPetOnSurface,
+  positionPetOnSurfacePath,
+  type SurfacePathEdge,
   type PatrolSurface,
   type SurfaceRestSpot
 } from "./patrolSurface";
@@ -18,6 +20,8 @@ export interface PatrolState {
   modeMs: number;
   stableSurfaceMs: number;
   targetRestSpot: SurfaceRestSpot | null;
+  frameProgress: number;
+  frameEdge: SurfacePathEdge;
 }
 
 export interface PatrolPlannerInput {
@@ -51,7 +55,9 @@ export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
     mode: "walking",
     modeMs: 0,
     stableSurfaceMs: 0,
-    targetRestSpot: null
+    targetRestSpot: null,
+    frameProgress: 0,
+    frameEdge: "top"
   };
 }
 
@@ -62,6 +68,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   const stableSurfaceMs = surfaceChanged
     ? input.deltaMs
     : state.stableSurfaceMs + input.deltaMs;
+  const frameProgress = state.frameProgress ?? 0;
   const lanePosition = clampToLane(state.position, input.surface, petSize);
 
   if (state.mode === "sleeping") {
@@ -72,6 +79,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         stableSurfaceMs,
         modeMs,
         position: positionPetOnSurface(input.surface, lanePosition.x, "sleeping", petSize),
+        frameProgress,
         behavior: "sleep",
         facing: state.direction === "right" ? "right" : "left"
       };
@@ -83,6 +91,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       mode: "waking",
       modeMs: 0,
       position: positionPetOnSurface(input.surface, lanePosition.x, "perching", petSize),
+      frameProgress,
       behavior: "wake",
       facing: state.direction === "right" ? "right" : "left"
     };
@@ -96,6 +105,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         stableSurfaceMs,
         modeMs,
         position: positionPetOnSurface(input.surface, lanePosition.x, "perching", petSize),
+        frameProgress,
         behavior: "wake",
         facing: state.direction === "right" ? "right" : "left"
       };
@@ -108,6 +118,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       modeMs: 0,
       targetRestSpot: null,
       position: positionPetOnSurface(input.surface, lanePosition.x, "walking", petSize),
+      frameProgress,
       behavior: "walk",
       facing: state.direction === "right" ? "right" : "left"
     };
@@ -127,6 +138,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       modeMs: 0,
       targetRestSpot: restSpot,
       position: positionPetOnSurface(input.surface, restSpot.x, "sleeping", petSize),
+      frameProgress,
       pauseMs: 0,
       behavior: "sleep",
       facing: state.direction === "right" ? "right" : "left"
@@ -141,12 +153,34 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       pauseMs: Math.max(0, state.pauseMs - input.deltaMs),
       mode: "perching",
       modeMs: Math.min(PERCH_DURATION_MS, state.modeMs + input.deltaMs),
+      frameProgress,
       behavior: "look",
       facing: state.direction === "right" ? "right" : "left"
     };
   }
 
   const speed = input.speedPxPerMs ?? DEFAULT_PATROL_SPEED_PX_PER_MS;
+
+  if (input.surface.kind !== "screen-edge") {
+    const nextProgress = frameProgress + input.deltaMs * speed;
+    const pathPoint = positionPetOnSurfacePath(input.surface, nextProgress, "walking", petSize);
+
+    return {
+      surfaceId: input.surface.id,
+      position: pathPoint.position,
+      direction: pathPoint.edge === "left" || pathPoint.edge === "bottom" ? "left" : "right",
+      pauseMs: 0,
+      mode: "walking",
+      modeMs: 0,
+      stableSurfaceMs,
+      targetRestSpot: null,
+      frameProgress: pathPoint.progress,
+      frameEdge: pathPoint.edge,
+      behavior: "walk",
+      facing: pathPoint.edge === "left" || pathPoint.edge === "bottom" ? "left" : "right"
+    };
+  }
+
   const signedStep = input.deltaMs * speed * (state.direction === "right" ? 1 : -1);
   const nextX = lanePosition.x + signedStep;
   const reachedRight = nextX >= input.surface.maxX;
@@ -163,6 +197,8 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     modeMs: 0,
     stableSurfaceMs,
     targetRestSpot: null,
+    frameProgress: 0,
+    frameEdge: "top",
     behavior: reachedRight || reachedLeft ? "look" : "walk",
     facing: direction === "right" ? "right" : "left"
   };

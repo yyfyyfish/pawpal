@@ -21,6 +21,7 @@ export interface PatrolSurface {
 
 export type SurfaceRestSpotKind = "left-corner" | "center" | "right-corner";
 export type SurfacePose = "walking" | "perching" | "sleeping";
+export type SurfacePathEdge = "top" | "right" | "bottom" | "left";
 
 export interface SurfaceRestSpot {
   id: string;
@@ -29,6 +30,13 @@ export interface SurfaceRestSpot {
   y: number;
   kind: SurfaceRestSpotKind;
   weight: number;
+}
+
+export interface SurfacePathPoint {
+  position: Point;
+  edge: SurfacePathEdge;
+  progress: number;
+  length: number;
 }
 
 export const SURFACE_EDGE_PADDING = 24;
@@ -104,6 +112,87 @@ export function positionPetOnSurface(
   };
 }
 
+export function surfacePatrolPathLength(surface: PatrolSurface): number {
+  if (surface.kind === "screen-edge") return surface.maxX - surface.minX;
+
+  const horizontal = surface.maxX - surface.minX;
+  const vertical = surface.rect.height;
+
+  return horizontal * 2 + vertical * 2;
+}
+
+export function positionPetOnSurfacePath(
+  surface: PatrolSurface,
+  progress: number,
+  pose: SurfacePose,
+  petSize: number
+): SurfacePathPoint {
+  const length = surfacePatrolPathLength(surface);
+  const normalizedProgress = normalizePathProgress(progress, length);
+
+  if (surface.kind === "screen-edge") {
+    return {
+      position: positionPetOnSurface(surface, surface.minX + normalizedProgress, pose, petSize),
+      edge: "top",
+      progress: normalizedProgress,
+      length
+    };
+  }
+
+  const topLength = surface.maxX - surface.minX;
+  const rightLength = surface.rect.height;
+  const bottomLength = topLength;
+  const rightX = surface.rect.x + surface.rect.width;
+  const bottomY = surface.rect.y + surface.rect.height;
+  const poseOffset = SURFACE_POSE_OFFSETS[pose];
+
+  if (normalizedProgress < topLength) {
+    return {
+      position: {
+        x: surface.minX + normalizedProgress,
+        y: surface.rect.y - petSize * poseOffset
+      },
+      edge: "top",
+      progress: normalizedProgress,
+      length
+    };
+  }
+
+  if (normalizedProgress < topLength + rightLength) {
+    return {
+      position: {
+        x: rightX - petSize * (1 - poseOffset),
+        y: surface.rect.y + (normalizedProgress - topLength) - petSize / 2
+      },
+      edge: "right",
+      progress: normalizedProgress,
+      length
+    };
+  }
+
+  if (normalizedProgress < topLength + rightLength + bottomLength) {
+    return {
+      position: {
+        x: surface.maxX - (normalizedProgress - topLength - rightLength),
+        y: bottomY - petSize * (1 - poseOffset)
+      },
+      edge: "bottom",
+      progress: normalizedProgress,
+      length
+    };
+  }
+
+  return {
+    position: {
+      x: surface.rect.x - petSize * poseOffset,
+      y: bottomY - (normalizedProgress - topLength - rightLength - bottomLength) - petSize / 2
+    },
+    edge: "left",
+    progress: normalizedProgress,
+    length
+  };
+}
+
 export function isPatrolSurface(value: unknown): value is PatrolSurface {
   if (!value || typeof value !== "object") return false;
 
@@ -125,6 +214,11 @@ export function isPatrolSurface(value: unknown): value is PatrolSurface {
     isFiniteNumber(surface.maxX) &&
     surface.maxX > surface.minX
   );
+}
+
+function normalizePathProgress(progress: number, length: number): number {
+  if (length <= 0) return 0;
+  return ((progress % length) + length) % length;
 }
 
 function createRestSpot(

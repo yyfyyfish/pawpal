@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createWindowTopSurface } from "../src/core/patrolSurface";
+import { createScreenEdgeSurface, createWindowTopSurface } from "../src/core/patrolSurface";
 import {
   createInitialPatrolState,
   planPatrolStep,
@@ -31,18 +31,40 @@ test("patrol planner keeps the cat walking on the selected surface lane", () => 
   assert.ok(next.position.x > surface.minX);
 });
 
-test("patrol planner turns around at surface edges", () => {
+test("patrol planner moves around an app frame instead of only along one line", () => {
+  const state = createInitialPatrolState(surface);
+
+  const next = planPatrolStep({
+    state,
+    surface,
+    deltaMs: 14_000,
+    petSize: 96,
+    speedPxPerMs: 0.045
+  });
+
+  assert.equal(next.behavior, "walk");
+  assert.ok(next.position.y > state.position.y);
+  assert.notEqual(next.frameEdge, "top");
+});
+
+test("patrol planner turns around at screen edges", () => {
+  const screenSurface = createScreenEdgeSurface("screen-bottom", {
+    x: 0,
+    y: 24,
+    width: 800,
+    height: 600
+  });
   const state = {
-    ...createInitialPatrolState(surface),
-    position: { x: surface.maxX - 1, y: surface.walkY },
+    ...createInitialPatrolState(screenSurface),
+    position: { x: screenSurface.maxX - 1, y: screenSurface.walkY },
     direction: "right" as const
   };
 
-  const next = planPatrolStep({ state, surface, deltaMs: 1000, petSize: 96 });
+  const next = planPatrolStep({ state, surface: screenSurface, deltaMs: 1000, petSize: 96 });
 
   assert.equal(next.direction, "left");
   assert.equal(next.facing, "left");
-  assert.equal(next.position.x, surface.maxX);
+  assert.equal(next.position.x, screenSurface.maxX);
 });
 
 test("patrol planner can pause without leaving the lane", () => {
