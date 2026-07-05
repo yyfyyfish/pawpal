@@ -3,10 +3,10 @@
 PawPal is a cozy macOS desktop cat that stays above your work, wanders around
 quietly, reacts to your cursor, and knows when to nap.
 
-This repo is scaffolded as a Tauri desktop app with a TypeScript frontend and a
-Rust shell. The current focus is the v0.1 MVP: a transparent always-on-top pet
-window, a small behavior engine, sprite-based animation, and macOS-friendly
-controls.
+This repo is a Tauri desktop app with a TypeScript frontend and a Rust shell.
+The current target is V1: a transparent always-on-top pet window, a small
+behavior engine, sprite-based animation, local settings, macOS-friendly
+controls, and a brain-ready intent boundary.
 
 ## Project Shape
 
@@ -39,13 +39,21 @@ npm run build
 npm run tauri:build
 ```
 
-## MVP
+The macOS V1 app bundle is written to:
 
-The first playable build should:
+```text
+src-tauri/target/release/bundle/macos/PawPal.app
+```
+
+## V1
+
+The V1 build includes:
 
 - Show a transparent, frameless cat window
 - Keep the cat above normal app windows
 - Let clicks pass through except when interacting with the cat
 - Animate idle, walk, sleep, wake, look, meow, scratch, and groom states
-- Provide menu/tray controls for pause, mute, size, energy, and quit
+- Provide menu/tray controls for pause, mute, size, energy, settings, and quit
 - Store preferences locally
+- Keep runtime assets local
+- Expose a safe `BrainProvider` contract for future DeepAgent work
