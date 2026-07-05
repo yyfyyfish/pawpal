@@ -13,7 +13,7 @@ import {
 import type { PetBehavior, PetState, Point } from "./types";
 
 export type PatrolDirection = "left" | "right";
-export type PatrolMode = "walking" | "perching" | "sleeping" | "waking";
+export type PatrolMode = "walking" | "perching" | "hopping" | "sleeping" | "waking";
 
 export interface PatrolState {
   surfaceId: string;
@@ -55,6 +55,7 @@ const PERCH_DURATION_MS = 1_400;
 const SLEEP_DURATION_MS = 5_000;
 const WAKE_DURATION_MS = 700;
 const DRAG_ANCHOR_PAUSE_MS = 1_500;
+const HOP_DURATION_MS = 520;
 const AVOIDANCE_RETREAT_SPEED_MULTIPLIER = 4;
 
 export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
@@ -88,8 +89,8 @@ export function createAnchoredPatrolState(
     ...initial,
     position: anchoredPosition,
     direction: anchoredPosition.x >= initial.position.x ? "right" : "left",
-    pauseMs: DRAG_ANCHOR_PAUSE_MS,
-    mode: "perching",
+    pauseMs: 0,
+    mode: "hopping",
     roamTarget: null
   };
 }
@@ -97,7 +98,9 @@ export function createAnchoredPatrolState(
 export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   const petSize = input.petSize ?? DEFAULT_PET_SIZE;
   const surfaceChanged = input.state.surfaceId !== input.surface.id;
-  const state = surfaceChanged ? createInitialPatrolState(input.surface) : input.state;
+  const state = surfaceChanged
+    ? createAnchoredPatrolState(input.surface, input.state.position, petSize)
+    : input.state;
   const stableSurfaceMs = surfaceChanged
     ? input.deltaMs
     : state.stableSurfaceMs + input.deltaMs;
@@ -113,6 +116,34 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     avoidanceZones,
     nowMs
   );
+
+  if (state.mode === "hopping") {
+    const modeMs = state.modeMs + input.deltaMs;
+    if (modeMs < HOP_DURATION_MS) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        modeMs,
+        pauseMs: 0,
+        position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
+        frameProgress,
+        behavior: "pounce",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
+    return {
+      ...state,
+      stableSurfaceMs,
+      mode: "walking",
+      modeMs: 0,
+      pauseMs: DRAG_ANCHOR_PAUSE_MS,
+      position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
+      frameProgress,
+      behavior: "walk",
+      facing: state.direction === "right" ? "right" : "left"
+    };
+  }
 
   if (state.mode === "sleeping") {
     if (currentOverlapsAvoidance) {

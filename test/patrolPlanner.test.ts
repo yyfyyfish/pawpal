@@ -77,8 +77,8 @@ test("patrol planner can start roaming from a user-dragged anchor", () => {
 
   assert.equal(state.position.x, 420);
   assert.equal(state.position.y, 360);
-  assert.equal(state.mode, "perching");
-  assert.equal(state.pauseMs, 1_500);
+  assert.equal(state.mode, "hopping");
+  assert.equal(state.pauseMs, 0);
 
   const paused = planPatrolStep({
     state,
@@ -87,8 +87,37 @@ test("patrol planner can start roaming from a user-dragged anchor", () => {
     petSize: 96
   });
 
-  assert.equal(paused.behavior, "look");
+  assert.equal(paused.behavior, "pounce");
   assert.deepEqual(paused.position, state.position);
+});
+
+test("patrol planner hops before walking after a surface change", () => {
+  const previous = {
+    ...createInitialPatrolState(roamSurface),
+    position: { x: 480, y: 360 },
+    surfaceId: "old-surface"
+  };
+
+  const hop = planPatrolStep({
+    state: previous,
+    surface,
+    deltaMs: 160,
+    petSize: 96
+  });
+
+  assert.equal(hop.mode, "hopping");
+  assert.equal(hop.behavior, "pounce");
+  assert.ok(hop.position.y < surface.walkY);
+
+  const walk = planPatrolStep({
+    state: hop,
+    surface,
+    deltaMs: 700,
+    petSize: 96
+  });
+
+  assert.equal(walk.mode, "walking");
+  assert.equal(walk.behavior, "walk");
 });
 
 test("patrol planner can sit on a visible app top frame while roaming", () => {
@@ -380,7 +409,7 @@ test("patrol planner wakes and resets when the app surface changes", () => {
   });
 
   assert.equal(next.surfaceId, nextSurface.id);
-  assert.equal(next.mode, "walking");
-  assert.equal(next.behavior, "walk");
+  assert.equal(next.mode, "hopping");
+  assert.equal(next.behavior, "pounce");
   assert.equal(next.stableSurfaceMs, 250);
 });
