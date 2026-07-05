@@ -21,6 +21,7 @@ import {
   type PetCommand
 } from "../core/interaction";
 import { chooseNearestMonitor, clampToSafeArea, getSafeArea } from "../core/screen";
+import { createScreenEdgeSurfaces, type PatrolSurface } from "../core/patrolSurface";
 import type { Point } from "../core/types";
 
 const STORE_PATH = "pawpal.json";
@@ -102,6 +103,27 @@ export async function listenForPetMoves(
       y: logicalPosition.y
     });
   });
+}
+
+export async function loadScreenEdgePatrolSurfaces(
+  position: Point
+): Promise<PatrolSurface[]> {
+  const monitors = await availableMonitors();
+  const normalizedMonitors = monitors.map((candidate) => {
+    const logicalPosition = candidate.position.toLogical(candidate.scaleFactor);
+    const logicalSize = candidate.size.toLogical(candidate.scaleFactor);
+
+    return {
+      x: logicalPosition.x,
+      y: logicalPosition.y,
+      width: logicalSize.width,
+      height: logicalSize.height,
+      scaleFactor: candidate.scaleFactor
+    };
+  });
+  const monitor = chooseNearestMonitor(position, normalizedMonitors);
+
+  return monitor ? createScreenEdgeSurfaces(getSafeArea(monitor)) : [];
 }
 
 export function reduceInteractionState(

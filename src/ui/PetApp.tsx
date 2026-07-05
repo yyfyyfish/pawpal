@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createInitialPetState, tickPet } from "../core/behavior";
+import {
+  createInitialPatrolState,
+  planPatrolStep,
+  type PatrolState
+} from "../core/patrolPlanner";
+import { choosePatrolSurface, shouldMigrateSurface } from "../core/patrolSelector";
+import type { PatrolSurface } from "../core/patrolSurface";
 import { DEFAULT_PREFERENCES } from "../core/preferences";
 import { createSpriteRenderer } from "../core/renderer";
 import type { PetState } from "../core/types";
@@ -10,17 +17,20 @@ import {
   applyLaunchAtLogin,
   listenForPetCommands,
   listenForPetMoves,
+  loadScreenEdgePatrolSurfaces,
   loadInteractionState,
   reduceInteractionState,
   saveInteractionState,
   sendPetCommandToPet,
   startPetDrag
 } from "./petWindow";
+import { loadFrontWindowSurface } from "./nativeSurfaces";
 import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
 import { ANIMATIONS } from "../core/animations";
 import { SettingsApp } from "./SettingsApp";
 
 const BASE_CANVAS_SIZE = 96;
+const SURFACE_REFRESH_MS = 3_000;
 
 export function PetApp() {
   const windowLabel = getCurrentWindow().label;
@@ -89,14 +99,52 @@ export function PetApp() {
     let previousTime = performance.now();
     let frameId = 0;
     let previousCue: string | undefined;
+    let activeSurface: PatrolSurface | null = null;
+    let patrolState: PatrolState | null = null;
+    let refreshElapsedMs = SURFACE_REFRESH_MS;
+    let migrationElapsedMs = SURFACE_REFRESH_MS;
 
     void loadDefaultSpriteAssets()
       .then((assets) => renderer.setSpriteAssets(assets))
       .catch(() => undefined);
 
+    const refreshPatrolSurface = () => {
+      void Promise.all([
+        loadFrontWindowSurface(),
+        loadScreenEdgePatrolSurfaces(interaction.position)
+      ])
+        .then(([frontWindow, fallbackSurfaces]) => {
+          if (fallbackSurfaces.length === 0) return;
+
+          const nextSurface = choosePatrolSurface({
+            preferred: "front-window",
+            frontWindow,
+            fallbackSurfaces
+          });
+
+          if (
+            shouldMigrateSurface(activeSurface?.id ?? null, nextSurface.id, migrationElapsedMs)
+          ) {
+            activeSurface = nextSurface;
+            patrolState = createInitialPatrolState(nextSurface);
+            migrationElapsedMs = 0;
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    refreshPatrolSurface();
+
     const frame = (time: number) => {
       const deltaMs = time - previousTime;
       previousTime = time;
+      refreshElapsedMs += deltaMs;
+      migrationElapsedMs += deltaMs;
+
+      if (refreshElapsedMs >= SURFACE_REFRESH_MS) {
+        refreshElapsedMs = 0;
+        refreshPatrolSurface();
+      }
 
       petState.current = tickPet(petState.current, {
         deltaMs,
@@ -107,6 +155,26 @@ export function PetApp() {
           height: window.innerHeight
         }
       });
+
+      if (activeSurface) {
+        patrolState ??= createInitialPatrolState(activeSurface);
+        const patrolStep = planPatrolStep({
+          state: patrolState,
+          surface: activeSurface,
+          deltaMs
+        });
+        patrolState = patrolStep;
+        petState.current = {
+          ...petState.current,
+          behavior: patrolStep.behavior,
+          facing: patrolStep.facing,
+          position: patrolStep.position
+        };
+        void applyWindowState({
+          ...interaction,
+          position: patrolStep.position
+        }).catch(() => undefined);
+      }
 
       renderer.draw(petState.current);
 
