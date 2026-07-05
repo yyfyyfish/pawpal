@@ -1,9 +1,19 @@
-import type { EnergyLevel, PetBehavior } from "./types";
+import type {
+  EnergyLevel,
+  PatrolIntensity,
+  PatrolSurfacePreference,
+  PetBehavior
+} from "./types";
 
 export type CatIntent =
   | { type: "animate"; behavior: PetBehavior }
   | { type: "say"; text: string; mood: "cozy" | "curious" | "sleepy" }
   | { type: "set_energy"; energy: EnergyLevel }
+  | {
+      type: "patrol";
+      surfacePreference?: PatrolSurfacePreference;
+      intensity?: PatrolIntensity;
+    }
   | { type: "do_nothing" };
 
 export interface BrainContext {
@@ -53,6 +63,8 @@ export function isCatIntent(value: unknown): value is CatIntent {
       );
     case "set_energy":
       return isEnergy((intent as { energy?: unknown }).energy);
+    case "patrol":
+      return isPatrolIntent(intent);
     case "do_nothing":
       return true;
     default:
@@ -80,4 +92,21 @@ function isPetBehavior(value: unknown): value is PetBehavior {
 
 function isEnergy(value: unknown): value is EnergyLevel {
   return value === "calm" || value === "normal" || value === "playful";
+}
+
+function isPatrolIntent(intent: Partial<CatIntent>): boolean {
+  const patrol = intent as {
+    surfacePreference?: unknown;
+    intensity?: unknown;
+  };
+
+  return (
+    (patrol.surfacePreference === undefined ||
+      patrol.surfacePreference === "front-window" ||
+      patrol.surfacePreference === "screen-edge") &&
+    (patrol.intensity === undefined ||
+      patrol.intensity === "lazy" ||
+      patrol.intensity === "normal" ||
+      patrol.intensity === "busy")
+  );
 }

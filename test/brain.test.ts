@@ -13,6 +13,7 @@ test("cat intents are a narrow safe command language", () => {
     { type: "animate", behavior: "sleep" },
     { type: "say", text: "tiny nap", mood: "sleepy" },
     { type: "set_energy", energy: "calm" },
+    { type: "patrol", surfacePreference: "front-window", intensity: "lazy" },
     { type: "do_nothing" }
   ];
 
@@ -22,6 +23,15 @@ test("cat intents are a narrow safe command language", () => {
 
   assert.equal(isCatIntent({ type: "shell", command: "open -a Finder" }), false);
   assert.equal(isCatIntent({ type: "animate", behavior: "delete-files" }), false);
+  assert.equal(isCatIntent({ type: "patrol", surfacePreference: "filesystem" }), false);
+});
+
+test("brain docs describe patrol as a safe intent", async () => {
+  const doc = await readFile("docs/brain.md", "utf8");
+
+  assert.match(doc, /patrol/);
+  assert.match(doc, /DeepAgent/);
+  assert.match(doc, /must not.*native/i);
 });
 
 test("rule-based brain emits safe ambient intents", async () => {

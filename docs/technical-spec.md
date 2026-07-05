@@ -170,11 +170,20 @@ type CatIntent =
   | { type: "animate"; behavior: PetBehavior }
   | { type: "say"; text: string; mood: "cozy" | "curious" | "sleepy" }
   | { type: "set_energy"; energy: EnergyLevel }
+  | { type: "patrol"; surfacePreference?: "front-window" | "screen-edge"; intensity?: "lazy" | "normal" | "busy" }
   | { type: "do_nothing" };
 ```
 
 Future DeepAgent work should run behind a local adapter or service boundary and
 map agent output into these intents instead of granting general desktop control.
+
+## Surface Patrol
+
+Surface Patrol V1 models app/window tops and screen edges as horizontal
+`PatrolSurface` lanes. The selector prefers a front-window surface when native
+detection provides one and falls back to safe screen-edge lanes when it cannot.
+The movement planner owns walking, pausing, and turning at edges; the native
+window layer only receives validated, clamped positions.
 
 ## Open Questions
 
