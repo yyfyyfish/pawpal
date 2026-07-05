@@ -116,6 +116,7 @@ export function PetApp() {
     let refreshElapsedMs = SURFACE_REFRESH_MS;
     let migrationElapsedMs = SURFACE_REFRESH_MS;
     let restDecisionElapsedMs = 0;
+    let frontWindowMissingMs = 0;
 
     void loadDefaultSpriteAssets()
       .then((assets) => {
@@ -128,6 +129,7 @@ export function PetApp() {
       if (!interaction.preferences.patrolEnabled) {
         activeSurface = null;
         patrolState = null;
+        frontWindowMissingMs = 0;
         return;
       }
 
@@ -137,10 +139,13 @@ export function PetApp() {
       ])
         .then(([frontWindow, fallbackSurfaces]) => {
           if (fallbackSurfaces.length === 0) return;
+          frontWindowMissingMs = frontWindow ? 0 : frontWindowMissingMs + SURFACE_REFRESH_MS;
 
           const nextSurface = choosePatrolSurface({
             preferred: interaction.preferences.patrolSurfacePreference,
+            currentSurface: activeSurface,
             frontWindow,
+            frontWindowMissingMs,
             fallbackSurfaces
           });
 

@@ -39,6 +39,44 @@ test("surface selector falls back to screen edges when no app surface exists", (
   assert.equal(selected.id, "screen-bottom");
 });
 
+test("surface selector holds the current app surface during brief detection gaps", () => {
+  const currentSurface = createWindowTopSurface("front-window:Safari", {
+    x: 200,
+    y: 120,
+    width: 800,
+    height: 600
+  });
+
+  const selected = choosePatrolSurface({
+    preferred: "front-window",
+    currentSurface,
+    frontWindow: null,
+    frontWindowMissingMs: 3_000,
+    fallbackSurfaces: createScreenEdgeSurfaces(safeArea)
+  });
+
+  assert.equal(selected.id, "front-window:Safari");
+});
+
+test("surface selector falls back after a sustained front-window detection gap", () => {
+  const currentSurface = createWindowTopSurface("front-window:Safari", {
+    x: 200,
+    y: 120,
+    width: 800,
+    height: 600
+  });
+
+  const selected = choosePatrolSurface({
+    preferred: "front-window",
+    currentSurface,
+    frontWindow: null,
+    frontWindowMissingMs: 12_000,
+    fallbackSurfaces: createScreenEdgeSurfaces(safeArea)
+  });
+
+  assert.equal(selected.id, "screen-bottom");
+});
+
 test("surface migration waits until the target changes and cooldown has elapsed", () => {
   assert.equal(shouldMigrateSurface("screen-bottom", "front-window:Safari", 10_000), true);
   assert.equal(shouldMigrateSurface("screen-bottom", "front-window:Safari", 500), false);

@@ -65,6 +65,14 @@ test("patrol runtime uses scaled pet size and timed rest chances", async () => {
   assert.match(source, /restDecisionElapsedMs >= REST_DECISION_MS \? Math\.random\(\) : undefined/);
 });
 
+test("patrol runtime keeps front-window surfaces through brief detection gaps", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /frontWindowMissingMs = frontWindow \? 0 : frontWindowMissingMs \+ SURFACE_REFRESH_MS/);
+  assert.match(source, /currentSurface: activeSurface/);
+  assert.match(source, /frontWindowMissingMs/);
+});
+
 test("reset position command restores default window placement", () => {
   const reset = applyPetCommand(
     { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },
