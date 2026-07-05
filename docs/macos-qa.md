@@ -29,6 +29,13 @@ Use this checklist before a V1 release candidate.
 - Open a full-screen app.
 - Confirm PawPal's visible-on-all-workspaces behavior is acceptable and quit remains available.
 
+## Typing Guard privacy
+
+- Type in Terminal, a browser text field, and a document editor.
+- Confirm the cat wakes or moves away from the focused editable geometry.
+- Confirm the Typing guard setting can disable and re-enable this behavior.
+- Confirm PawPal does not read typed text and only uses focused editable geometry.
+
 ## No network traffic
 
 - Confirm V1 runs without account login, telemetry, cloud sync, or remote asset fetches.

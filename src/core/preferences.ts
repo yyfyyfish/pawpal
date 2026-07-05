@@ -10,7 +10,8 @@ export const DEFAULT_PREFERENCES: PetPreferences = {
   launchAtLogin: false,
   patrolEnabled: true,
   patrolSurfacePreference: "front-window",
-  patrolIntensity: "normal"
+  patrolIntensity: "normal",
+  typingGuardEnabled: true
 };
 
 export function normalizePreferences(value: unknown): PetPreferences {
@@ -38,7 +39,11 @@ export function normalizePreferences(value: unknown): PetPreferences {
     patrolSurfacePreference: normalizePatrolSurfacePreference(
       preferences.patrolSurfacePreference
     ),
-    patrolIntensity: normalizePatrolIntensity(preferences.patrolIntensity)
+    patrolIntensity: normalizePatrolIntensity(preferences.patrolIntensity),
+    typingGuardEnabled: booleanOrDefault(
+      preferences.typingGuardEnabled,
+      DEFAULT_PREFERENCES.typingGuardEnabled
+    )
   };
 }
 

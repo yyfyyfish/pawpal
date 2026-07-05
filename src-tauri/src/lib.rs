@@ -276,6 +276,8 @@ fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
         .text("energy-playful", "Energy: Playful")
         .text("launch-at-login-on", "Launch at Login")
         .text("launch-at-login-off", "Do Not Launch at Login")
+        .text("typing-guard-on", "Typing Guard On")
+        .text("typing-guard-off", "Typing Guard Off")
         .separator()
         .text("patrol-on", "Patrol Apps")
         .text("patrol-off", "Stop Patrol")

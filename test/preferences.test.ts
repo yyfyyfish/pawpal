@@ -34,7 +34,8 @@ test("stored preferences are normalized and clamped", () => {
     launchAtLogin: true,
     patrolEnabled: false,
     patrolSurfacePreference: "screen-edge",
-    patrolIntensity: "busy"
+    patrolIntensity: "busy",
+    typingGuardEnabled: false
   });
 
   assert.deepEqual(preferences, {
@@ -45,7 +46,8 @@ test("stored preferences are normalized and clamped", () => {
     launchAtLogin: true,
     patrolEnabled: false,
     patrolSurfacePreference: "screen-edge",
-    patrolIntensity: "busy"
+    patrolIntensity: "busy",
+    typingGuardEnabled: false
   });
 
   assert.deepEqual(toStoredPreferences(preferences), preferences);
@@ -77,6 +79,12 @@ test("settings commands can set exact scale and launch-at-login", () => {
   assert.equal(patrol.preferences.patrolEnabled, false);
   assert.equal(patrol.preferences.patrolSurfacePreference, "screen-edge");
   assert.equal(patrol.preferences.patrolIntensity, "busy");
+
+  const typingGuard = applyPetCommand(patrol, {
+    type: "set-typing-guard",
+    enabled: false
+  });
+  assert.equal(typingGuard.preferences.typingGuardEnabled, false);
 });
 
 test("settings command ids map to typed pet commands", () => {
@@ -84,6 +92,8 @@ test("settings command ids map to typed pet commands", () => {
     ["open-settings", { type: "open-settings" }],
     ["launch-at-login-on", { type: "set-launch-at-login", launchAtLogin: true }],
     ["launch-at-login-off", { type: "set-launch-at-login", launchAtLogin: false }],
+    ["typing-guard-on", { type: "set-typing-guard", enabled: true }],
+    ["typing-guard-off", { type: "set-typing-guard", enabled: false }],
     ["patrol-on", { type: "set-patrol-settings", patrol: { enabled: true } }],
     ["patrol-off", { type: "set-patrol-settings", patrol: { enabled: false } }],
     [
@@ -113,7 +123,16 @@ test("tauri config and native tray expose the settings window", async () => {
   assert.equal(settingsWindow.width >= 320, true);
   assert.match(rust, /open-settings/);
   assert.match(rust, /patrol-on/);
+  assert.match(rust, /typing-guard-on/);
   assert.match(rust, /tauri_plugin_autostart/);
+});
+
+test("settings UI exposes the typing guard toggle", async () => {
+  const source = await readFile("src/ui/SettingsApp.tsx", "utf8");
+
+  assert.match(source, /preferences\.typingGuardEnabled/);
+  assert.match(source, /set-typing-guard/);
+  assert.match(source, /Typing guard/);
 });
 
 test("stored legacy default scale migrates to the compact default once", async () => {

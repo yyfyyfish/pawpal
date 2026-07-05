@@ -90,6 +90,19 @@ export function SettingsApp({ interaction, onCommand }: SettingsAppProps) {
           />
           <span>Launch at login</span>
         </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.typingGuardEnabled}
+            onChange={(event) => {
+              onCommand({
+                type: "set-typing-guard",
+                enabled: event.currentTarget.checked
+              });
+            }}
+          />
+          <span>Typing guard</span>
+        </label>
       </section>
 
       <section className="settings-section settings-toggles">

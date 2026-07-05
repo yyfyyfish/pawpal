@@ -22,6 +22,7 @@ export type PetCommand =
   | { type: "set-energy"; energy: EnergyLevel }
   | { type: "set-scale"; scale: number }
   | { type: "set-launch-at-login"; launchAtLogin: boolean }
+  | { type: "set-typing-guard"; enabled: boolean }
   | {
       type: "set-patrol-settings";
       patrol: {
@@ -57,6 +58,8 @@ export function applyPetCommand(state: InteractionState, command: PetCommand): I
       return withPreferences(state, { scale: clampScale(command.scale) });
     case "set-launch-at-login":
       return withPreferences(state, { launchAtLogin: command.launchAtLogin });
+    case "set-typing-guard":
+      return withPreferences(state, { typingGuardEnabled: command.enabled });
     case "set-patrol-settings":
       return withPreferences(state, {
         patrolEnabled: command.patrol.enabled ?? state.preferences.patrolEnabled,
@@ -115,6 +118,8 @@ export function isPetCommand(value: unknown): value is PetCommand {
       return typeof (command as { scale?: unknown }).scale === "number";
     case "set-launch-at-login":
       return typeof (command as { launchAtLogin?: unknown }).launchAtLogin === "boolean";
+    case "set-typing-guard":
+      return typeof (command as { enabled?: unknown }).enabled === "boolean";
     case "set-patrol-settings":
       return isPatrolSettings((command as { patrol?: unknown }).patrol);
     default:
@@ -137,6 +142,10 @@ export function menuIdToCommand(id: string): PetCommand | null {
       return { type: "set-launch-at-login", launchAtLogin: true };
     case "launch-at-login-off":
       return { type: "set-launch-at-login", launchAtLogin: false };
+    case "typing-guard-on":
+      return { type: "set-typing-guard", enabled: true };
+    case "typing-guard-off":
+      return { type: "set-typing-guard", enabled: false };
     case "patrol-on":
       return { type: "set-patrol-settings", patrol: { enabled: true } };
     case "patrol-off":

@@ -74,8 +74,12 @@ test("macOS reliability QA checklist is documented", async () => {
     "Dock and menu bar",
     "Laptop sleep and wake",
     "Full-screen Spaces",
+    "Typing Guard privacy",
     "No network traffic"
   ]) {
     assert.match(checklist, new RegExp(item));
   }
+
+  assert.match(checklist, /focused editable geometry/);
+  assert.match(checklist, /does not read typed text/);
 });

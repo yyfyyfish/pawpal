@@ -52,6 +52,7 @@ The V1 build includes:
 - Show a transparent, frameless cat window
 - Keep the cat above normal app windows
 - Let clicks pass through except when interacting with the cat
+- Use Typing Guard to keep the cat away from active text input areas
 - Animate idle, walk, sleep, wake, look, meow, scratch, and groom states
 - Provide menu/tray controls for pause, mute, size, energy, settings, and quit
 - Store preferences locally

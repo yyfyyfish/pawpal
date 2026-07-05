@@ -310,6 +310,11 @@ export function PetApp() {
     };
 
     const refreshTypingGuard = (nowMs: number) => {
+      if (!interaction.preferences.typingGuardEnabled) {
+        typingAvoidanceZones = [];
+        return;
+      }
+
       const requestVersion = (typingGuardRequestVersion += 1);
 
       void loadFocusedTypingBounds()
@@ -347,7 +352,9 @@ export function PetApp() {
         refreshPatrolSurface();
       }
 
-      if (typingGuardRefreshElapsedMs >= TYPING_GUARD_REFRESH_MS) {
+      if (!interaction.preferences.typingGuardEnabled) {
+        typingAvoidanceZones = [];
+      } else if (typingGuardRefreshElapsedMs >= TYPING_GUARD_REFRESH_MS) {
         typingGuardRefreshElapsedMs = 0;
         refreshTypingGuard(time);
       }
@@ -385,6 +392,9 @@ export function PetApp() {
             elapsedInStateMs: 0
           };
         }
+        const activeTypingAvoidanceZones = interaction.preferences.typingGuardEnabled
+          ? typingAvoidanceZones
+          : [];
         const patrolStep = planPatrolStep({
           state: patrolState,
           surface: activeSurface,
@@ -397,7 +407,7 @@ export function PetApp() {
             activeSurface.kind === "screen-roam" && !patrolState.roamTarget
               ? createRandomRoamTarget(activeSurface, canvasSize)
               : undefined,
-          avoidanceZones: typingAvoidanceZones,
+          avoidanceZones: activeTypingAvoidanceZones,
           nowMs: time,
           speedPxPerMs: PATROL_SPEEDS[interaction.preferences.patrolIntensity]
         });

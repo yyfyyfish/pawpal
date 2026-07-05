@@ -32,6 +32,7 @@ test("readme includes V1 install and build guidance", async () => {
   assert.match(readme, /V1/);
   assert.match(readme, /npm run tauri:build/);
   assert.match(readme, /PawPal\.app/);
+  assert.match(readme, /Typing Guard/);
 });
 
 test("app icon uses cat artwork for native bundling", async () => {

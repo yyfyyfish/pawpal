@@ -33,6 +33,7 @@ export interface PetPreferences {
   patrolEnabled: boolean;
   patrolSurfacePreference: PatrolSurfacePreference;
   patrolIntensity: PatrolIntensity;
+  typingGuardEnabled: boolean;
 }
 
 export interface PetState {

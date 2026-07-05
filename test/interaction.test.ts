@@ -90,7 +90,9 @@ test("pet app refreshes typing guard zones for patrol planning", async () => {
   assert.match(source, /createTypingAvoidanceZone/);
   assert.match(source, /typingAvoidanceZones/);
   assert.match(source, /refreshTypingGuard/);
-  assert.match(source, /avoidanceZones: typingAvoidanceZones/);
+  assert.match(source, /interaction\.preferences\.typingGuardEnabled/);
+  assert.match(source, /activeTypingAvoidanceZones/);
+  assert.match(source, /avoidanceZones: activeTypingAvoidanceZones/);
   assert.match(source, /nowMs: time/);
 });
 
