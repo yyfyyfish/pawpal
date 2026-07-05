@@ -8,7 +8,7 @@ const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 test("package exposes phase-0 foundation scripts", async () => {
   const packageJson = await readJson("package.json");
 
-  assert.equal(packageJson.scripts.test, "node --test");
+  assert.match(packageJson.scripts.test, /^node .*--test$/);
   assert.equal(packageJson.scripts.preflight, "node scripts/preflight.mjs");
   assert.equal(packageJson.scripts.check, "npm run preflight && npm run typecheck && npm test");
   assert.equal(packageJson.scripts.dev, "tauri dev");

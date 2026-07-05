@@ -44,6 +44,7 @@ export interface PetTickInput {
   preferences: PetPreferences;
   cursor: Point | null;
   screen: ScreenBounds;
+  random?: RandomSource;
 }
 
 export interface AnimationDefinition {
@@ -52,3 +53,5 @@ export interface AnimationDefinition {
   loop: boolean;
   soundCue?: string;
 }
+
+export type RandomSource = () => number;

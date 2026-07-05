@@ -1,4 +1,4 @@
-import type { EnergyLevel, PetBehavior } from "./types";
+import type { EnergyLevel, PetBehavior, RandomSource } from "./types";
 
 const BASE_WEIGHTS: Record<EnergyLevel, Array<[PetBehavior, number]>> = {
   calm: [
@@ -31,10 +31,13 @@ const BASE_WEIGHTS: Record<EnergyLevel, Array<[PetBehavior, number]>> = {
   ]
 };
 
-export function chooseNextBehavior(energy: EnergyLevel): PetBehavior {
+export function chooseNextBehavior(
+  energy: EnergyLevel,
+  random: RandomSource = Math.random
+): PetBehavior {
   const weights = BASE_WEIGHTS[energy];
   const total = weights.reduce((sum, [, weight]) => sum + weight, 0);
-  let roll = Math.random() * total;
+  let roll = random() * total;
 
   for (const [behavior, weight] of weights) {
     roll -= weight;
@@ -44,17 +47,37 @@ export function chooseNextBehavior(energy: EnergyLevel): PetBehavior {
   return "idle";
 }
 
-export function nextDecisionDelay(energy: EnergyLevel): number {
+export function nextDecisionDelay(
+  energy: EnergyLevel,
+  random: RandomSource = Math.random
+): number {
   switch (energy) {
     case "calm":
-      return randomBetween(3500, 9000);
+      return randomBetween(3500, 9000, random);
     case "playful":
-      return randomBetween(1400, 4200);
+      return randomBetween(1400, 4200, random);
     default:
-      return randomBetween(2200, 6500);
+      return randomBetween(2200, 6500, random);
   }
 }
 
-function randomBetween(min: number, max: number): number {
-  return Math.round(min + Math.random() * (max - min));
+export function createSeededRandom(seed: string): RandomSource {
+  let hash = 2166136261;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return () => {
+    hash += 0x6d2b79f5;
+    let value = hash;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomBetween(min: number, max: number, random: RandomSource): number {
+  return Math.round(min + random() * (max - min));
 }
