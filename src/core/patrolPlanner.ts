@@ -1,13 +1,23 @@
-import type { PatrolSurface } from "./patrolSurface";
+import {
+  createSurfaceRestSpots,
+  positionPetOnSurface,
+  type PatrolSurface,
+  type SurfaceRestSpot
+} from "./patrolSurface";
 import type { PetBehavior, PetState, Point } from "./types";
 
 export type PatrolDirection = "left" | "right";
+export type PatrolMode = "walking" | "perching" | "sleeping" | "waking";
 
 export interface PatrolState {
   surfaceId: string;
   position: Point;
   direction: PatrolDirection;
   pauseMs: number;
+  mode: PatrolMode;
+  modeMs: number;
+  stableSurfaceMs: number;
+  targetRestSpot: SurfaceRestSpot | null;
 }
 
 export interface PatrolPlannerInput {
@@ -15,6 +25,8 @@ export interface PatrolPlannerInput {
   surface: PatrolSurface;
   deltaMs: number;
   speedPxPerMs?: number;
+  petSize?: number;
+  restRoll?: number;
 }
 
 export interface PatrolStep extends PatrolState {
@@ -23,31 +35,112 @@ export interface PatrolStep extends PatrolState {
 }
 
 const DEFAULT_PATROL_SPEED_PX_PER_MS = 0.045;
+const DEFAULT_PET_SIZE = 96;
+const MIN_SLEEP_SURFACE_STABLE_MS = 8_000;
+const SLEEP_ROLL_THRESHOLD = 0.08;
+const PERCH_DURATION_MS = 1_400;
+const SLEEP_DURATION_MS = 5_000;
+const WAKE_DURATION_MS = 700;
 
 export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
   return {
     surfaceId: surface.id,
-    position: {
-      x: surface.minX,
-      y: surface.walkY
-    },
+    position: positionPetOnSurface(surface, surface.minX, "walking", DEFAULT_PET_SIZE),
     direction: "right",
-    pauseMs: 0
+    pauseMs: 0,
+    mode: "walking",
+    modeMs: 0,
+    stableSurfaceMs: 0,
+    targetRestSpot: null
   };
 }
 
 export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
-  const state =
-    input.state.surfaceId === input.surface.id
-      ? input.state
-      : createInitialPatrolState(input.surface);
-  const lanePosition = clampToLane(state.position, input.surface);
+  const petSize = input.petSize ?? DEFAULT_PET_SIZE;
+  const surfaceChanged = input.state.surfaceId !== input.surface.id;
+  const state = surfaceChanged ? createInitialPatrolState(input.surface) : input.state;
+  const stableSurfaceMs = surfaceChanged
+    ? input.deltaMs
+    : state.stableSurfaceMs + input.deltaMs;
+  const lanePosition = clampToLane(state.position, input.surface, petSize);
+
+  if (state.mode === "sleeping") {
+    const modeMs = state.modeMs + input.deltaMs;
+    if (modeMs < SLEEP_DURATION_MS) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        modeMs,
+        position: positionPetOnSurface(input.surface, lanePosition.x, "sleeping", petSize),
+        behavior: "sleep",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
+    return {
+      ...state,
+      stableSurfaceMs,
+      mode: "waking",
+      modeMs: 0,
+      position: positionPetOnSurface(input.surface, lanePosition.x, "perching", petSize),
+      behavior: "wake",
+      facing: state.direction === "right" ? "right" : "left"
+    };
+  }
+
+  if (state.mode === "waking") {
+    const modeMs = state.modeMs + input.deltaMs;
+    if (modeMs < WAKE_DURATION_MS) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        modeMs,
+        position: positionPetOnSurface(input.surface, lanePosition.x, "perching", petSize),
+        behavior: "wake",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
+    return {
+      ...state,
+      stableSurfaceMs,
+      mode: "walking",
+      modeMs: 0,
+      targetRestSpot: null,
+      position: positionPetOnSurface(input.surface, lanePosition.x, "walking", petSize),
+      behavior: "walk",
+      facing: state.direction === "right" ? "right" : "left"
+    };
+  }
+
+  if (
+    input.surface.kind !== "screen-edge" &&
+    stableSurfaceMs >= MIN_SLEEP_SURFACE_STABLE_MS &&
+    (input.restRoll ?? 1) < SLEEP_ROLL_THRESHOLD
+  ) {
+    const restSpot = chooseRestSpot(input.surface, lanePosition.x);
+
+    return {
+      ...state,
+      stableSurfaceMs,
+      mode: "sleeping",
+      modeMs: 0,
+      targetRestSpot: restSpot,
+      position: positionPetOnSurface(input.surface, restSpot.x, "sleeping", petSize),
+      pauseMs: 0,
+      behavior: "sleep",
+      facing: state.direction === "right" ? "right" : "left"
+    };
+  }
 
   if (state.pauseMs > 0) {
     return {
       ...state,
+      stableSurfaceMs,
       position: lanePosition,
       pauseMs: Math.max(0, state.pauseMs - input.deltaMs),
+      mode: "perching",
+      modeMs: Math.min(PERCH_DURATION_MS, state.modeMs + input.deltaMs),
       behavior: "look",
       facing: state.direction === "right" ? "right" : "left"
     };
@@ -63,20 +156,24 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
 
   return {
     surfaceId: input.surface.id,
-    position: {
-      x,
-      y: input.surface.walkY
-    },
+    position: positionPetOnSurface(input.surface, x, "walking", petSize),
     direction,
     pauseMs: reachedRight || reachedLeft ? 350 : 0,
+    mode: reachedRight || reachedLeft ? "perching" : "walking",
+    modeMs: 0,
+    stableSurfaceMs,
+    targetRestSpot: null,
     behavior: reachedRight || reachedLeft ? "look" : "walk",
     facing: direction === "right" ? "right" : "left"
   };
 }
 
-function clampToLane(position: Point, surface: PatrolSurface): Point {
-  return {
-    x: Math.min(surface.maxX, Math.max(surface.minX, position.x)),
-    y: surface.walkY
-  };
+function clampToLane(position: Point, surface: PatrolSurface, petSize: number): Point {
+  return positionPetOnSurface(surface, position.x, "walking", petSize);
+}
+
+function chooseRestSpot(surface: PatrolSurface, currentX: number): SurfaceRestSpot {
+  return createSurfaceRestSpots(surface).reduce((nearest, spot) => {
+    return Math.abs(spot.x - currentX) < Math.abs(nearest.x - currentX) ? spot : nearest;
+  });
 }

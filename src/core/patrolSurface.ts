@@ -19,7 +19,25 @@ export interface PatrolSurface {
   maxX: number;
 }
 
+export type SurfaceRestSpotKind = "left-corner" | "center" | "right-corner";
+export type SurfacePose = "walking" | "perching" | "sleeping";
+
+export interface SurfaceRestSpot {
+  id: string;
+  surfaceId: string;
+  x: number;
+  y: number;
+  kind: SurfaceRestSpotKind;
+  weight: number;
+}
+
 export const SURFACE_EDGE_PADDING = 24;
+const REST_SPOT_EDGE_OFFSET = 84;
+const SURFACE_POSE_OFFSETS: Record<SurfacePose, number> = {
+  walking: 0.78,
+  perching: 0.68,
+  sleeping: 0.58
+};
 
 export function createWindowTopSurface(id: string, rect: Rect): PatrolSurface {
   return createHorizontalSurface(id, "window-top", rect, rect.y);
@@ -62,6 +80,30 @@ export function surfaceCenter(surface: PatrolSurface): Point {
   };
 }
 
+export function createSurfaceRestSpots(surface: PatrolSurface): SurfaceRestSpot[] {
+  const centerX = surface.minX + (surface.maxX - surface.minX) / 2;
+  const leftX = Math.min(surface.maxX, surface.minX + REST_SPOT_EDGE_OFFSET - SURFACE_EDGE_PADDING);
+  const rightX = Math.max(surface.minX, surface.maxX - REST_SPOT_EDGE_OFFSET - SURFACE_EDGE_PADDING);
+
+  return [
+    createRestSpot(surface, "left-corner", leftX, 0.8),
+    createRestSpot(surface, "center", centerX, 1),
+    createRestSpot(surface, "right-corner", rightX, 0.8)
+  ];
+}
+
+export function positionPetOnSurface(
+  surface: PatrolSurface,
+  x: number,
+  pose: SurfacePose,
+  petSize: number
+): Point {
+  return {
+    x: Math.min(surface.maxX, Math.max(surface.minX, x)),
+    y: surface.walkY - petSize * SURFACE_POSE_OFFSETS[pose]
+  };
+}
+
 export function isPatrolSurface(value: unknown): value is PatrolSurface {
   if (!value || typeof value !== "object") return false;
 
@@ -83,6 +125,22 @@ export function isPatrolSurface(value: unknown): value is PatrolSurface {
     isFiniteNumber(surface.maxX) &&
     surface.maxX > surface.minX
   );
+}
+
+function createRestSpot(
+  surface: PatrolSurface,
+  kind: SurfaceRestSpotKind,
+  x: number,
+  weight: number
+): SurfaceRestSpot {
+  return {
+    id: `${surface.id}:${kind}`,
+    surfaceId: surface.id,
+    x,
+    y: surface.walkY,
+    kind,
+    weight
+  };
 }
 
 function createHorizontalSurface(

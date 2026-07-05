@@ -56,6 +56,15 @@ test("pet canvas size follows the active scale preference", async () => {
   assert.match(source, /height: `\$\{canvasSize\}px`/);
 });
 
+test("patrol runtime uses scaled pet size and timed rest chances", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /const REST_DECISION_MS = 3_000/);
+  assert.match(source, /restDecisionElapsedMs \+= deltaMs/);
+  assert.match(source, /petSize: canvasSize/);
+  assert.match(source, /restDecisionElapsedMs >= REST_DECISION_MS \? Math\.random\(\) : undefined/);
+});
+
 test("reset position command restores default window placement", () => {
   const reset = applyPetCommand(
     { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },

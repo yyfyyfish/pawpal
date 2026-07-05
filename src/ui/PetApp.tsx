@@ -36,6 +36,7 @@ import type { SpriteRuntimeAssets } from "../core/renderer";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
+const REST_DECISION_MS = 3_000;
 const PATROL_SPEEDS = {
   lazy: 0.025,
   normal: 0.045,
@@ -114,6 +115,7 @@ export function PetApp() {
     let patrolState: PatrolState | null = null;
     let refreshElapsedMs = SURFACE_REFRESH_MS;
     let migrationElapsedMs = SURFACE_REFRESH_MS;
+    let restDecisionElapsedMs = 0;
 
     void loadDefaultSpriteAssets()
       .then((assets) => {
@@ -160,6 +162,7 @@ export function PetApp() {
       previousTime = time;
       refreshElapsedMs += deltaMs;
       migrationElapsedMs += deltaMs;
+      restDecisionElapsedMs += deltaMs;
 
       if (refreshElapsedMs >= SURFACE_REFRESH_MS) {
         refreshElapsedMs = 0;
@@ -182,9 +185,14 @@ export function PetApp() {
           state: patrolState,
           surface: activeSurface,
           deltaMs,
+          petSize: canvasSize,
+          restRoll:
+            restDecisionElapsedMs >= REST_DECISION_MS ? Math.random() : undefined,
           speedPxPerMs: PATROL_SPEEDS[interaction.preferences.patrolIntensity]
         });
         patrolState = patrolStep;
+        restDecisionElapsedMs =
+          restDecisionElapsedMs >= REST_DECISION_MS ? 0 : restDecisionElapsedMs;
         petState.current = {
           ...petState.current,
           behavior: patrolStep.behavior,
