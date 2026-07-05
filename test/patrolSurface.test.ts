@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createScreenEdgeSurfaces,
   createScreenEdgeSurface,
   createWindowTopSurface,
   isPatrolSurface,
   type PatrolSurface
 } from "../src/core/patrolSurface";
+import { getSafeArea } from "../src/core/screen";
 
 test("patrol surfaces expose a safe horizontal walking lane", () => {
   const surface = createWindowTopSurface("front-window", {
@@ -52,4 +54,24 @@ test("patrol surface validation rejects tiny or malformed lanes", () => {
 
   assert.equal(isPatrolSurface(tiny), false);
   assert.equal(isPatrolSurface({ type: "walk-to", x: 10, y: 10 }), false);
+});
+
+test("screen edge fallback creates safe top and bottom patrol lanes", () => {
+  const safeArea = getSafeArea({
+    x: 0,
+    y: 0,
+    width: 1440,
+    height: 900,
+    scaleFactor: 2
+  });
+
+  const surfaces = createScreenEdgeSurfaces(safeArea);
+
+  assert.deepEqual(
+    surfaces.map((surface) => surface.id),
+    ["screen-top", "screen-bottom"]
+  );
+  assert.equal(surfaces[0].walkY, 32);
+  assert.equal(surfaces[1].walkY, 816);
+  assert.ok(surfaces.every(isPatrolSurface));
 });

@@ -1,4 +1,5 @@
 import type { Point } from "./types";
+import type { SafeArea } from "./screen";
 
 export type PatrolSurfaceKind = "window-top" | "tab-bar" | "screen-edge" | "custom";
 
@@ -30,6 +31,20 @@ export function createTabBarSurface(id: string, rect: Rect): PatrolSurface {
 
 export function createScreenEdgeSurface(id: string, rect: Rect): PatrolSurface {
   return createHorizontalSurface(id, "screen-edge", rect, rect.y + rect.height - SURFACE_EDGE_PADDING);
+}
+
+export function createScreenEdgeSurfaces(safeArea: SafeArea): PatrolSurface[] {
+  const rect = {
+    x: safeArea.x,
+    y: safeArea.y,
+    width: safeArea.width,
+    height: safeArea.height
+  };
+
+  return [
+    createHorizontalSurface("screen-top", "screen-edge", rect, safeArea.y),
+    createScreenEdgeSurface("screen-bottom", rect)
+  ].filter(isPatrolSurface);
 }
 
 export function createCustomSurface(
