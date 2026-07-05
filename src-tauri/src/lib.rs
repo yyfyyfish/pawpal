@@ -1,12 +1,16 @@
-use tauri::{Manager, WebviewWindow};
+use tauri::{menu::MenuBuilder, tray::TrayIconBuilder, Emitter, Manager, WebviewWindow};
+
+const PET_WINDOW_LABEL: &str = "pet";
+const COMMAND_EVENT: &str = "pawpal://command";
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
-            if let Some(window) = app.get_webview_window("pet") {
+            if let Some(window) = app.get_webview_window(PET_WINDOW_LABEL) {
                 configure_pet_window(&window);
             }
+            configure_tray(app)?;
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -20,4 +24,47 @@ fn configure_pet_window(window: &WebviewWindow) {
     let _ = window.set_shadow(false);
     let _ = window.set_resizable(false);
     let _ = window.set_focusable(false);
+    let _ = window.set_visible_on_all_workspaces(true);
+    let _ = window.set_ignore_cursor_events(true);
+}
+
+fn configure_tray(app: &tauri::App) -> tauri::Result<()> {
+    let menu = MenuBuilder::new(app)
+        .text("toggle-pause", "Pause / Resume")
+        .text("toggle-mute", "Mute / Unmute")
+        .text("toggle-click-through", "Toggle Click-Through")
+        .separator()
+        .text("energy-calm", "Energy: Calm")
+        .text("energy-normal", "Energy: Normal")
+        .text("energy-playful", "Energy: Playful")
+        .separator()
+        .text("size-smaller", "Smaller")
+        .text("size-larger", "Larger")
+        .text("reset-position", "Reset Position")
+        .separator()
+        .text("quit", "Quit PawPal")
+        .build()?;
+
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .expect("PawPal should have a default tray icon");
+
+    TrayIconBuilder::with_id("pawpal-tray")
+        .tooltip("PawPal")
+        .icon(icon)
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| {
+            let command = event.id().as_ref();
+            if command == "quit" {
+                app.exit(0);
+                return;
+            }
+
+            let _ = app.emit_to(PET_WINDOW_LABEL, COMMAND_EVENT, command);
+        })
+        .build(app)?;
+
+    Ok(())
 }
