@@ -1,9 +1,20 @@
+use serde::Serialize;
 use tauri::{menu::MenuBuilder, tray::TrayIconBuilder, Emitter, Manager, WebviewWindow};
 use tauri_plugin_autostart::MacosLauncher;
 
 const PET_WINDOW_LABEL: &str = "pet";
 const SETTINGS_WINDOW_LABEL: &str = "settings";
 const COMMAND_EVENT: &str = "pawpal://command";
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeWindowBounds {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    app_name: Option<String>,
+}
 
 pub fn run() {
     tauri::Builder::default()
@@ -12,6 +23,7 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .invoke_handler(tauri::generate_handler![frontmost_window_bounds])
         .setup(|app| {
             if let Some(window) = app.get_webview_window(PET_WINDOW_LABEL) {
                 configure_pet_window(&window);
@@ -25,6 +37,11 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("failed to run PawPal");
+}
+
+#[tauri::command]
+fn frontmost_window_bounds() -> Option<NativeWindowBounds> {
+    None
 }
 
 fn configure_pet_window(window: &WebviewWindow) {
