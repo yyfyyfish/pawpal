@@ -34,6 +34,19 @@ test("readme includes V1 install and build guidance", async () => {
   assert.match(readme, /PawPal\.app/);
 });
 
-test("app icon asset is present for bundling", async () => {
-  await access("src-tauri/icons/icon.png", constants.R_OK);
+test("app icon uses cat artwork for native bundling", async () => {
+  const config = JSON.parse(await readFile("src-tauri/tauri.conf.json", "utf8"));
+  const icons = config.bundle.icon as string[];
+
+  assert.ok(icons.length > 0);
+  assert.ok(icons.includes("icons/icon.icns"));
+  assert.ok(icons.includes("icons/icon.ico"));
+
+  for (const icon of icons) {
+    await access(`src-tauri/${icon}`, constants.R_OK);
+  }
+
+  const source = await readFile("src-tauri/icons/app-icon.svg", "utf8");
+  assert.match(source, /pawpal-app-cat/);
+  assert.match(source, /#7a5a48/i);
 });

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="84" y="84" width="856" height="856" rx="220" fill="#fff8ed"/>
+  <rect x="84" y="84" width="856" height="856" rx="220" fill="none" stroke="#18191b" stroke-width="28"/>
+  <path d="M244 792c122 54 414 54 536 0 34-15 34-44 0-58-122-50-414-50-536 0-34 14-34 43 0 58Z" fill="#d9cfc2"/>
+
+  <g id="pawpal-app-cat" transform="translate(122 130) scale(12.2)">
+    <path d="M13 20V8l10 8h18l10-8v12h4v28H9V20Z" fill="#fff8ed" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M16 13v9l7-5Z" fill="#ff8fa3" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M48 13v9l-7-5Z" fill="#ff8fa3" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M19 24h26v24H19Z" fill="#7a5a48"/>
+    <path d="M9 48h46v6H9Z" fill="#d9cfc2"/>
+    <rect x="13" y="44" width="10" height="12" rx="2" fill="#fff8ed" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round"/>
+    <rect x="41" y="44" width="10" height="12" rx="2" fill="#7a5a48" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round"/>
+    <circle cx="23" cy="34" r="2.9" fill="#18191b"/>
+    <circle cx="41" cy="34" r="2.9" fill="#18191b"/>
+    <circle cx="24" cy="33" r=".8" fill="#fff8ed"/>
+    <circle cx="42" cy="33" r=".8" fill="#fff8ed"/>
+    <path d="M30 40h4M27 43c3 3 7 3 10 0" fill="none" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M12 39H2M12 44H3M52 39h10M52 44h9" fill="none" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="15" y="47" width="7" height="6" rx="2" fill="#ff8fa3" stroke="#18191b" stroke-width="2.6" stroke-linejoin="round"/>
+  </g>
+</svg>
