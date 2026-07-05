@@ -48,6 +48,7 @@ const SLEEP_ROLL_THRESHOLD = 0.08;
 const PERCH_DURATION_MS = 1_400;
 const SLEEP_DURATION_MS = 5_000;
 const WAKE_DURATION_MS = 700;
+const DRAG_ANCHOR_PAUSE_MS = 1_500;
 
 export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
   return {
@@ -61,6 +62,27 @@ export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
     targetRestSpot: null,
     frameProgress: 0,
     frameEdge: "top",
+    roamTarget: null
+  };
+}
+
+export function createAnchoredPatrolState(
+  surface: PatrolSurface,
+  position: Point,
+  petSize: number = DEFAULT_PET_SIZE
+): PatrolState {
+  const initial = createInitialPatrolState(surface);
+  const anchoredPosition =
+    surface.kind === "screen-roam"
+      ? clampToRoamBounds(position, surface, petSize)
+      : positionPetOnSurface(surface, position.x, "walking", petSize);
+
+  return {
+    ...initial,
+    position: anchoredPosition,
+    direction: anchoredPosition.x >= initial.position.x ? "right" : "left",
+    pauseMs: DRAG_ANCHOR_PAUSE_MS,
+    mode: "perching",
     roamTarget: null
   };
 }

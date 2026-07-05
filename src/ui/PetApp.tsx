@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createInitialPetState, tickPet } from "../core/behavior";
 import {
+  createAnchoredPatrolState,
   createInitialPatrolState,
   planPatrolStep,
   type PatrolState
@@ -10,7 +11,7 @@ import { choosePatrolSurface, shouldMigrateSurface } from "../core/patrolSelecto
 import type { PatrolSurface } from "../core/patrolSurface";
 import { DEFAULT_PREFERENCES } from "../core/preferences";
 import { createSpriteRenderer } from "../core/renderer";
-import type { PetState } from "../core/types";
+import type { PetState, Point } from "../core/types";
 import {
   DEFAULT_WINDOW_POSITION,
   applyPetMove,
@@ -65,12 +66,27 @@ export function PetApp() {
   const lastPettingReaction = useRef<PettingReaction | null>(null);
   const pendingPettingReaction = useRef<PettingReaction | null>(null);
   const companionState = useRef(createInitialCompanionState());
+  const manualDragging = useRef(false);
+  const manualDragAnchor = useRef<Point | null>(null);
+  const dragAnchorVersion = useRef(0);
+  const dragSettleTimeout = useRef<number | null>(null);
   const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
     position: DEFAULT_WINDOW_POSITION
   });
   const canvasSize = Math.round(BASE_CANVAS_SIZE * interaction.preferences.scale);
+
+  const scheduleDragSettle = () => {
+    if (dragSettleTimeout.current !== null) {
+      window.clearTimeout(dragSettleTimeout.current);
+    }
+
+    dragSettleTimeout.current = window.setTimeout(() => {
+      manualDragging.current = false;
+      dragSettleTimeout.current = null;
+    }, 350);
+  };
 
   useEffect(() => {
     let disposed = false;
@@ -126,6 +142,14 @@ export function PetApp() {
 
     if (windowLabel === "pet") {
       void listenForPetMoves((position) => {
+        if (manualDragging.current) {
+          manualDragAnchor.current = position;
+          dragAnchorVersion.current += 1;
+          scheduleDragSettle();
+          setInteraction((current) => applyPetMove(current, position, "drag"));
+          return;
+        }
+
         setInteraction((current) => applyPetMove(current, position));
       }).then((unlisten) => {
         unlistenMoves = unlisten;
@@ -135,6 +159,9 @@ export function PetApp() {
     return () => {
       unlistenCommands?.();
       unlistenMoves?.();
+      if (dragSettleTimeout.current !== null) {
+        window.clearTimeout(dragSettleTimeout.current);
+      }
     };
   }, [windowLabel]);
 
@@ -156,6 +183,7 @@ export function PetApp() {
     let migrationElapsedMs = SURFACE_REFRESH_MS;
     let restDecisionElapsedMs = 0;
     let frontWindowMissingMs = 0;
+    let handledDragAnchorVersion = dragAnchorVersion.current;
 
     void loadDefaultSpriteAssets()
       .then((assets) => {
@@ -195,7 +223,10 @@ export function PetApp() {
             shouldMigrateSurface(activeSurface?.id ?? null, nextSurface.id, migrationElapsedMs)
           ) {
             activeSurface = nextSurface;
-            patrolState = createInitialPatrolState(nextSurface);
+            patrolState = manualDragAnchor.current
+              ? createAnchoredPatrolState(nextSurface, manualDragAnchor.current, canvasSize)
+              : createInitialPatrolState(nextSurface);
+            handledDragAnchorVersion = dragAnchorVersion.current;
             migrationElapsedMs = 0;
           }
         })
@@ -226,8 +257,26 @@ export function PetApp() {
         }
       });
 
-      if (interaction.preferences.patrolEnabled && activeSurface) {
+      if (interaction.preferences.patrolEnabled && activeSurface && !manualDragging.current) {
         patrolState ??= createInitialPatrolState(activeSurface);
+        if (
+          manualDragAnchor.current &&
+          dragAnchorVersion.current !== handledDragAnchorVersion
+        ) {
+          patrolState = createAnchoredPatrolState(
+            activeSurface,
+            manualDragAnchor.current,
+            canvasSize
+          );
+          handledDragAnchorVersion = dragAnchorVersion.current;
+          petState.current = {
+            ...petState.current,
+            behavior: "look",
+            target: null,
+            position: patrolState.position,
+            elapsedInStateMs: 0
+          };
+        }
         const patrolStep = planPatrolStep({
           state: patrolState,
           surface: activeSurface,
@@ -330,11 +379,15 @@ export function PetApp() {
         }}
         onPointerDown={() => {
           if (!interaction.preferences.clickThrough) {
+            manualDragging.current = true;
             void startPetDrag().catch(() => undefined);
           }
         }}
+        onPointerUp={scheduleDragSettle}
+        onPointerCancel={scheduleDragSettle}
         onPointerMove={(event) => {
           if (interaction.preferences.clickThrough) return;
+          if (manualDragging.current) return;
 
           const now = performance.now();
           const result = updatePettingGesture(pettingGesture.current, {

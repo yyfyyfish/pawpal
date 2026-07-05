@@ -99,12 +99,26 @@ test("patrol movement does not overwrite stored drag position", () => {
 
   assert.deepEqual(applyPetMove(state, { x: 800, y: 240 }), state);
   assert.deepEqual(
+    applyPetMove(state, { x: 820, y: 260 }, "drag").position,
+    { x: 820, y: 260 }
+  );
+  assert.deepEqual(
     applyPetMove(
       { ...state, preferences: { ...state.preferences, patrolEnabled: false } },
       { x: 800, y: 240 }
     ).position,
     { x: 800, y: 240 }
   );
+});
+
+test("pet app treats user dragging as a new patrol anchor", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /manualDragAnchor/);
+  assert.match(source, /createAnchoredPatrolState/);
+  assert.match(source, /applyPetMove\(current, position, "drag"\)/);
+  assert.match(source, /dragAnchorVersion/);
+  assert.match(source, /!manualDragging\.current/);
 });
 
 test("native tray exposes every Phase 2 menu command", async () => {

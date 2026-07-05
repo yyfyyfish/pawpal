@@ -41,6 +41,8 @@ export interface InteractionState {
   position: Point;
 }
 
+export type PetMoveSource = "patrol" | "drag";
+
 export function applyPetCommand(state: InteractionState, command: PetCommand): InteractionState {
   switch (command.type) {
     case "toggle-pause":
@@ -78,8 +80,12 @@ export function applyPetCommand(state: InteractionState, command: PetCommand): I
   }
 }
 
-export function applyPetMove(state: InteractionState, position: Point): InteractionState {
-  if (state.preferences.patrolEnabled) return state;
+export function applyPetMove(
+  state: InteractionState,
+  position: Point,
+  source: PetMoveSource = "patrol"
+): InteractionState {
+  if (state.preferences.patrolEnabled && source !== "drag") return state;
 
   return {
     ...state,

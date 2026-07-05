@@ -7,6 +7,7 @@ import {
 } from "../src/core/patrolSurface";
 import { getSafeArea } from "../src/core/screen";
 import {
+  createAnchoredPatrolState,
   createInitialPatrolState,
   planPatrolStep,
   type PatrolPlannerInput
@@ -65,6 +66,25 @@ test("patrol planner roams freely across the screen instead of following a line"
   assert.ok(next.position.x > state.position.x);
   assert.ok(next.position.y > state.position.y);
   assert.deepEqual(next.roamTarget, state.roamTarget);
+});
+
+test("patrol planner can start roaming from a user-dragged anchor", () => {
+  const state = createAnchoredPatrolState(roamSurface, { x: 420, y: 360 }, 96);
+
+  assert.equal(state.position.x, 420);
+  assert.equal(state.position.y, 360);
+  assert.equal(state.mode, "perching");
+  assert.equal(state.pauseMs, 1_500);
+
+  const paused = planPatrolStep({
+    state,
+    surface: roamSurface,
+    deltaMs: 500,
+    petSize: 96
+  });
+
+  assert.equal(paused.behavior, "look");
+  assert.deepEqual(paused.position, state.position);
 });
 
 test("patrol planner can sit on a visible app top frame while roaming", () => {
