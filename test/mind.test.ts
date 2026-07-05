@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  chooseCompanionBehavior,
   createInitialPetMindState,
   tickPetMind,
   type PetMindState
@@ -15,6 +16,90 @@ test("pet mind starts with calm bounded needs", () => {
   assert.equal(mind.comfort, 0.6);
   assert.equal(mind.irritation, 0);
   assert.equal(mind.sleepPressure, 0.18);
+});
+
+test("companion routine chooses sleep when the cat is tired", () => {
+  const behavior = chooseCompanionBehavior(
+    {
+      ...createInitialPetMindState(),
+      energy: 0.18,
+      sleepPressure: 0.86
+    },
+    {
+      currentBehavior: "idle",
+      energyPreference: "normal",
+      random: () => 0.9
+    }
+  );
+
+  assert.equal(behavior, "sleep");
+});
+
+test("companion routine wakes after enough sleep recovery", () => {
+  const behavior = chooseCompanionBehavior(
+    {
+      ...createInitialPetMindState(),
+      energy: 0.82,
+      sleepPressure: 0.12
+    },
+    {
+      currentBehavior: "sleep",
+      energyPreference: "normal",
+      random: () => 0.9
+    }
+  );
+
+  assert.equal(behavior, "wake");
+});
+
+test("companion routine prefers grooming when calm and comfortable", () => {
+  const behavior = chooseCompanionBehavior(
+    {
+      ...createInitialPetMindState(),
+      comfort: 0.86,
+      irritation: 0.02
+    },
+    {
+      currentBehavior: "idle",
+      energyPreference: "calm",
+      random: () => 0.12
+    }
+  );
+
+  assert.equal(behavior, "groom");
+});
+
+test("companion routine scratches when irritated", () => {
+  const behavior = chooseCompanionBehavior(
+    {
+      ...createInitialPetMindState(),
+      irritation: 0.78
+    },
+    {
+      currentBehavior: "idle",
+      energyPreference: "normal",
+      random: () => 0.9
+    }
+  );
+
+  assert.equal(behavior, "scratch");
+});
+
+test("companion routine pounces when playful and curious", () => {
+  const behavior = chooseCompanionBehavior(
+    {
+      ...createInitialPetMindState(),
+      energy: 0.8,
+      curiosity: 0.88
+    },
+    {
+      currentBehavior: "idle",
+      energyPreference: "playful",
+      random: () => 0.18
+    }
+  );
+
+  assert.equal(behavior, "pounce");
 });
 
 test("pet mind drifts toward sleepiness while awake", () => {

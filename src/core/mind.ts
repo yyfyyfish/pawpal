@@ -1,4 +1,4 @@
-import type { EnergyLevel, PetBehavior } from "./types";
+import type { EnergyLevel, PetBehavior, RandomSource } from "./types";
 
 export interface PetMindState {
   energy: number;
@@ -13,6 +13,12 @@ export interface PetMindTickInput {
   deltaMs: number;
   behavior: PetBehavior;
   energyPreference: EnergyLevel;
+}
+
+export interface CompanionBehaviorInput {
+  currentBehavior: PetBehavior;
+  energyPreference: EnergyLevel;
+  random?: RandomSource;
 }
 
 const MINUTE_MS = 60_000;
@@ -48,6 +54,55 @@ export function tickPetMind(
   });
 }
 
+export function chooseCompanionBehavior(
+  state: PetMindState,
+  input: CompanionBehaviorInput
+): PetBehavior | null {
+  const random = input.random ?? Math.random;
+
+  if (input.currentBehavior === "sleep") {
+    return state.energy >= 0.75 && state.sleepPressure <= 0.2 ? "wake" : null;
+  }
+
+  if (isOneShotBehavior(input.currentBehavior)) return null;
+
+  if (state.sleepPressure >= 0.82 && state.energy <= 0.35) {
+    return "sleep";
+  }
+
+  if (state.irritation >= 0.7) {
+    return "scratch";
+  }
+
+  if (
+    input.energyPreference === "calm" &&
+    state.comfort >= 0.8 &&
+    state.irritation <= 0.15 &&
+    random() < 0.2
+  ) {
+    return "groom";
+  }
+
+  if (
+    input.energyPreference === "playful" &&
+    state.energy >= 0.65 &&
+    state.curiosity >= 0.75 &&
+    random() < 0.3
+  ) {
+    return "pounce";
+  }
+
+  if (state.affection <= 0.25 && random() < 0.12) {
+    return "meow";
+  }
+
+  if (state.curiosity >= 0.65 && random() < 0.08) {
+    return "look";
+  }
+
+  return null;
+}
+
 function energyProfile(energy: EnergyLevel): {
   energyUse: number;
   curiosityGain: number;
@@ -76,4 +131,8 @@ function clampMind(state: PetMindState): PetMindState {
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+function isOneShotBehavior(behavior: PetBehavior): boolean {
+  return ["wake", "look", "meow", "scratch", "groom", "pounce"].includes(behavior);
 }
