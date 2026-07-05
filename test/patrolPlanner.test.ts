@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createScreenEdgeSurface, createWindowTopSurface } from "../src/core/patrolSurface";
+import {
+  createScreenEdgeSurface,
+  createScreenRoamSurface,
+  createWindowTopSurface
+} from "../src/core/patrolSurface";
+import { getSafeArea } from "../src/core/screen";
 import {
   createInitialPatrolState,
   planPatrolStep,
@@ -13,6 +18,16 @@ const surface = createWindowTopSurface("front-window", {
   width: 500,
   height: 400
 });
+
+const roamSurface = createScreenRoamSurface(
+  getSafeArea({
+    x: 0,
+    y: 0,
+    width: 1440,
+    height: 900,
+    scaleFactor: 2
+  })
+);
 
 test("patrol planner keeps the cat walking on the selected surface lane", () => {
   const input: PatrolPlannerInput = {
@@ -29,6 +44,51 @@ test("patrol planner keeps the cat walking on the selected surface lane", () => 
   assert.equal(next.behavior, "walk");
   assert.equal(next.facing, "right");
   assert.ok(next.position.x > surface.minX);
+});
+
+test("patrol planner roams freely across the screen instead of following a line", () => {
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    position: { x: 100, y: 100 },
+    roamTarget: { x: 500, y: 420 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    deltaMs: 2_000,
+    petSize: 96,
+    speedPxPerMs: 0.1
+  });
+
+  assert.equal(next.behavior, "walk");
+  assert.ok(next.position.x > state.position.x);
+  assert.ok(next.position.y > state.position.y);
+  assert.deepEqual(next.roamTarget, state.roamTarget);
+});
+
+test("patrol planner can sit on a visible app top frame while roaming", () => {
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    stableSurfaceMs: 9_000,
+    position: { x: 320, y: 280 },
+    roamTarget: { x: 900, y: 600 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 500,
+    petSize: 96,
+    restRoll: 0.03
+  });
+
+  assert.equal(next.mode, "sleeping");
+  assert.equal(next.behavior, "sleep");
+  assert.equal(next.targetRestSpot?.surfaceId, surface.id);
+  assert.ok(next.position.y < surface.walkY);
+  assert.ok(next.position.y + 96 > surface.walkY);
 });
 
 test("patrol planner moves around an app frame instead of only along one line", () => {

@@ -73,6 +73,15 @@ test("patrol runtime keeps front-window surfaces through brief detection gaps", 
   assert.match(source, /frontWindowMissingMs/);
 });
 
+test("patrol runtime roams the screen and treats apps as rest surfaces", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /loadScreenPatrolSurfaces/);
+  assert.match(source, /activeRestSurface/);
+  assert.match(source, /restSurface: activeRestSurface/);
+  assert.match(source, /createRandomRoamTarget/);
+});
+
 test("reset position command restores default window placement", () => {
   const reset = applyPetCommand(
     { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },

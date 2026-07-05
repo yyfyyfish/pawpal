@@ -21,7 +21,7 @@ import {
   applyLaunchAtLogin,
   listenForPetCommands,
   listenForPetMoves,
-  loadScreenEdgePatrolSurfaces,
+  loadScreenPatrolSurfaces,
   loadInteractionState,
   reduceInteractionState,
   saveInteractionState,
@@ -112,6 +112,7 @@ export function PetApp() {
     let frameId = 0;
     let previousCue: string | undefined;
     let activeSurface: PatrolSurface | null = null;
+    let activeRestSurface: PatrolSurface | null = null;
     let patrolState: PatrolState | null = null;
     let refreshElapsedMs = SURFACE_REFRESH_MS;
     let migrationElapsedMs = SURFACE_REFRESH_MS;
@@ -128,6 +129,7 @@ export function PetApp() {
     const refreshPatrolSurface = () => {
       if (!interaction.preferences.patrolEnabled) {
         activeSurface = null;
+        activeRestSurface = null;
         patrolState = null;
         frontWindowMissingMs = 0;
         return;
@@ -135,11 +137,13 @@ export function PetApp() {
 
       void Promise.all([
         loadFrontWindowSurface(),
-        loadScreenEdgePatrolSurfaces(interaction.position)
+        loadScreenPatrolSurfaces(interaction.position)
       ])
         .then(([frontWindow, fallbackSurfaces]) => {
           if (fallbackSurfaces.length === 0) return;
           frontWindowMissingMs = frontWindow ? 0 : frontWindowMissingMs + SURFACE_REFRESH_MS;
+          activeRestSurface =
+            interaction.preferences.patrolSurfacePreference === "front-window" ? frontWindow : null;
 
           const nextSurface = choosePatrolSurface({
             preferred: interaction.preferences.patrolSurfacePreference,
@@ -193,6 +197,11 @@ export function PetApp() {
           petSize: canvasSize,
           restRoll:
             restDecisionElapsedMs >= REST_DECISION_MS ? Math.random() : undefined,
+          restSurface: activeRestSurface,
+          roamTarget:
+            activeSurface.kind === "screen-roam" && !patrolState.roamTarget
+              ? createRandomRoamTarget(activeSurface, canvasSize)
+              : undefined,
           speedPxPerMs: PATROL_SPEEDS[interaction.preferences.patrolIntensity]
         });
         patrolState = patrolStep;
@@ -258,4 +267,11 @@ export function PetApp() {
       />
     </main>
   );
+}
+
+function createRandomRoamTarget(surface: PatrolSurface, petSize: number) {
+  return {
+    x: surface.rect.x + Math.random() * Math.max(0, surface.rect.width - petSize),
+    y: surface.rect.y + Math.random() * Math.max(0, surface.rect.height - petSize)
+  };
 }

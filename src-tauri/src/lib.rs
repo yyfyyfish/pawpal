@@ -55,12 +55,16 @@ tell application "System Events"
   set bestHeight to 0
   repeat with candidateWindow in windows of frontApp
     try
+      set isFullScreen to false
+      try
+        set isFullScreen to value of attribute "AXFullScreen" of candidateWindow
+      end try
       set windowPosition to position of candidateWindow
       set windowSize to size of candidateWindow
       set windowWidth to item 1 of windowSize
       set windowHeight to item 2 of windowSize
       set windowArea to windowWidth * windowHeight
-      if windowWidth > 120 and windowHeight > 120 and windowArea > bestArea then
+      if isFullScreen is false and windowWidth > 120 and windowHeight > 120 and windowArea > bestArea then
         set bestArea to windowArea
         set bestX to item 1 of windowPosition
         set bestY to item 2 of windowPosition

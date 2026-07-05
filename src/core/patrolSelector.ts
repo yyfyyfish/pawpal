@@ -14,14 +14,16 @@ export const SURFACE_MIGRATION_COOLDOWN_MS = 3_000;
 export const FRONT_WINDOW_DETECTION_GRACE_MS = 9_000;
 
 export function choosePatrolSurface(input: PatrolSurfaceSelectionInput): PatrolSurface {
-  if (input.preferred === "front-window" && input.frontWindow) {
-    return input.frontWindow;
+  const roam = input.fallbackSurfaces.find((surface) => surface.id === "screen-roam");
+
+  if (input.preferred === "front-window" && roam) {
+    return roam;
   }
 
   if (
     input.preferred === "front-window" &&
     input.currentSurface &&
-    input.currentSurface.kind !== "screen-edge" &&
+    input.currentSurface.kind === "screen-roam" &&
     (input.frontWindowMissingMs ?? FRONT_WINDOW_DETECTION_GRACE_MS) <
       FRONT_WINDOW_DETECTION_GRACE_MS
   ) {

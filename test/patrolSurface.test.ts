@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createScreenEdgeSurfaces,
   createScreenEdgeSurface,
+  createScreenRoamSurface,
   createSurfaceRestSpots,
   createWindowTopSurface,
   positionPetOnSurfacePath,
@@ -78,6 +79,29 @@ test("screen edge fallback creates safe top and bottom patrol lanes", () => {
   assert.equal(surfaces[1].walkY, 816);
   assert.ok(surfaces.every(isPatrolSurface));
 });
+
+test("screen roam surface covers the safe monitor area for free patrol", () => {
+  const safeArea = getSafeArea({
+    x: 0,
+    y: 0,
+    width: 1440,
+    height: 900,
+    scaleFactor: 2
+  });
+
+  const surface = createScreenRoamSurface(safeArea);
+
+  assert.deepEqual(surface, {
+    id: "screen-roam",
+    kind: "screen-roam",
+    rect: { x: 8, y: 32, width: 1424, height: 808 },
+    walkY: 436,
+    minX: 32,
+    maxX: 1408
+  });
+  assert.equal(isPatrolSurface(surface), true);
+});
+
 
 test("window surfaces expose weighted rest spots inside the frame", () => {
   const surface = createWindowTopSurface("front-window:Editor", {

@@ -22,15 +22,18 @@ export interface PatrolState {
   targetRestSpot: SurfaceRestSpot | null;
   frameProgress: number;
   frameEdge: SurfacePathEdge;
+  roamTarget: Point | null;
 }
 
 export interface PatrolPlannerInput {
   state: PatrolState;
   surface: PatrolSurface;
+  restSurface?: PatrolSurface | null;
   deltaMs: number;
   speedPxPerMs?: number;
   petSize?: number;
   restRoll?: number;
+  roamTarget?: Point | null;
 }
 
 export interface PatrolStep extends PatrolState {
@@ -57,7 +60,8 @@ export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
     stableSurfaceMs: 0,
     targetRestSpot: null,
     frameProgress: 0,
-    frameEdge: "top"
+    frameEdge: "top",
+    roamTarget: null
   };
 }
 
@@ -69,6 +73,8 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     ? input.deltaMs
     : state.stableSurfaceMs + input.deltaMs;
   const frameProgress = state.frameProgress ?? 0;
+  const appRestSurface =
+    input.restSurface ?? (input.surface.kind !== "screen-roam" ? input.surface : null);
   const lanePosition = clampToLane(state.position, input.surface, petSize);
 
   if (state.mode === "sleeping") {
@@ -78,7 +84,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         ...state,
         stableSurfaceMs,
         modeMs,
-        position: positionPetOnSurface(input.surface, lanePosition.x, "sleeping", petSize),
+        position: state.position,
         frameProgress,
         behavior: "sleep",
         facing: state.direction === "right" ? "right" : "left"
@@ -90,7 +96,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       stableSurfaceMs,
       mode: "waking",
       modeMs: 0,
-      position: positionPetOnSurface(input.surface, lanePosition.x, "perching", petSize),
+      position: state.position,
       frameProgress,
       behavior: "wake",
       facing: state.direction === "right" ? "right" : "left"
@@ -104,7 +110,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         ...state,
         stableSurfaceMs,
         modeMs,
-        position: positionPetOnSurface(input.surface, lanePosition.x, "perching", petSize),
+        position: state.position,
         frameProgress,
         behavior: "wake",
         facing: state.direction === "right" ? "right" : "left"
@@ -117,7 +123,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       mode: "walking",
       modeMs: 0,
       targetRestSpot: null,
-      position: positionPetOnSurface(input.surface, lanePosition.x, "walking", petSize),
+      position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
       frameProgress,
       behavior: "walk",
       facing: state.direction === "right" ? "right" : "left"
@@ -125,11 +131,11 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   }
 
   if (
-    input.surface.kind !== "screen-edge" &&
+    appRestSurface &&
     stableSurfaceMs >= MIN_SLEEP_SURFACE_STABLE_MS &&
     (input.restRoll ?? 1) < SLEEP_ROLL_THRESHOLD
   ) {
-    const restSpot = chooseRestSpot(input.surface, lanePosition.x);
+    const restSpot = chooseRestSpot(appRestSurface, state.position.x);
 
     return {
       ...state,
@@ -137,7 +143,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       mode: "sleeping",
       modeMs: 0,
       targetRestSpot: restSpot,
-      position: positionPetOnSurface(input.surface, restSpot.x, "sleeping", petSize),
+      position: positionPetOnSurface(appRestSurface, restSpot.x, "sleeping", petSize),
       frameProgress,
       pauseMs: 0,
       behavior: "sleep",
@@ -149,7 +155,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     return {
       ...state,
       stableSurfaceMs,
-      position: lanePosition,
+      position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
       pauseMs: Math.max(0, state.pauseMs - input.deltaMs),
       mode: "perching",
       modeMs: Math.min(PERCH_DURATION_MS, state.modeMs + input.deltaMs),
@@ -160,6 +166,34 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   }
 
   const speed = input.speedPxPerMs ?? DEFAULT_PATROL_SPEED_PX_PER_MS;
+
+  if (input.surface.kind === "screen-roam") {
+    const target = state.roamTarget ?? input.roamTarget ?? screenRoamFallbackTarget(input.surface);
+    const nextPosition = moveToward(
+      state.position,
+      clampToRoamBounds(target, input.surface, petSize),
+      input.deltaMs * speed,
+      input.surface,
+      petSize
+    );
+    const reachedTarget = distance(nextPosition, target) < 8;
+
+    return {
+      surfaceId: input.surface.id,
+      position: nextPosition,
+      direction: nextPosition.x >= state.position.x ? "right" : "left",
+      pauseMs: reachedTarget ? 500 : 0,
+      mode: reachedTarget ? "perching" : "walking",
+      modeMs: 0,
+      stableSurfaceMs,
+      targetRestSpot: null,
+      frameProgress: 0,
+      frameEdge: "top",
+      roamTarget: reachedTarget ? null : target,
+      behavior: reachedTarget ? "look" : "walk",
+      facing: nextPosition.x >= state.position.x ? "right" : "left"
+    };
+  }
 
   if (input.surface.kind !== "screen-edge") {
     const nextProgress = frameProgress + input.deltaMs * speed;
@@ -176,6 +210,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       targetRestSpot: null,
       frameProgress: pathPoint.progress,
       frameEdge: pathPoint.edge,
+      roamTarget: null,
       behavior: "walk",
       facing: pathPoint.edge === "left" || pathPoint.edge === "bottom" ? "left" : "right"
     };
@@ -199,9 +234,58 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     targetRestSpot: null,
     frameProgress: 0,
     frameEdge: "top",
+    roamTarget: null,
     behavior: reachedRight || reachedLeft ? "look" : "walk",
     facing: direction === "right" ? "right" : "left"
   };
+}
+
+function moveToward(
+  current: Point,
+  target: Point,
+  maxDistance: number,
+  surface: PatrolSurface,
+  petSize: number
+): Point {
+  const dx = target.x - current.x;
+  const dy = target.y - current.y;
+  const remaining = Math.hypot(dx, dy);
+
+  if (remaining <= maxDistance || remaining === 0) {
+    return clampToRoamBounds(target, surface, petSize);
+  }
+
+  return clampToRoamBounds(
+    {
+      x: current.x + (dx / remaining) * maxDistance,
+      y: current.y + (dy / remaining) * maxDistance
+    },
+    surface,
+    petSize
+  );
+}
+
+function clampToRoamBounds(point: Point, surface: PatrolSurface, petSize: number): Point {
+  return {
+    x: clamp(point.x, surface.rect.x, surface.rect.x + surface.rect.width - petSize),
+    y: clamp(point.y, surface.rect.y, surface.rect.y + surface.rect.height - petSize)
+  };
+}
+
+function screenRoamFallbackTarget(surface: PatrolSurface): Point {
+  return {
+    x: surface.rect.x + surface.rect.width * 0.72,
+    y: surface.rect.y + surface.rect.height * 0.58
+  };
+}
+
+function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (max < min) return min;
+  return Math.min(max, Math.max(min, value));
 }
 
 function clampToLane(position: Point, surface: PatrolSurface, petSize: number): Point {

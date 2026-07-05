@@ -1,7 +1,12 @@
 import type { Point } from "./types";
 import type { SafeArea } from "./screen";
 
-export type PatrolSurfaceKind = "window-top" | "tab-bar" | "screen-edge" | "custom";
+export type PatrolSurfaceKind =
+  | "window-top"
+  | "tab-bar"
+  | "screen-edge"
+  | "screen-roam"
+  | "custom";
 
 export interface Rect {
   x: number;
@@ -71,6 +76,20 @@ export function createScreenEdgeSurfaces(safeArea: SafeArea): PatrolSurface[] {
     createHorizontalSurface("screen-top", "screen-edge", rect, safeArea.y),
     createScreenEdgeSurface("screen-bottom", rect)
   ].filter(isPatrolSurface);
+}
+
+export function createScreenRoamSurface(safeArea: SafeArea): PatrolSurface {
+  return createHorizontalSurface(
+    "screen-roam",
+    "screen-roam",
+    {
+      x: safeArea.x,
+      y: safeArea.y,
+      width: safeArea.width,
+      height: safeArea.height
+    },
+    safeArea.y + safeArea.height / 2
+  );
 }
 
 export function createCustomSurface(
@@ -201,7 +220,9 @@ export function isPatrolSurface(value: unknown): value is PatrolSurface {
 
   return (
     typeof surface.id === "string" &&
-    ["window-top", "tab-bar", "screen-edge", "custom"].includes(surface.kind ?? "") &&
+    ["window-top", "tab-bar", "screen-edge", "screen-roam", "custom"].includes(
+      surface.kind ?? ""
+    ) &&
     !!rect &&
     isFiniteNumber(rect.x) &&
     isFiniteNumber(rect.y) &&

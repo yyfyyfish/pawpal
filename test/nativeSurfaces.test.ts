@@ -38,6 +38,7 @@ test("tauri exposes a frontmost window bounds command", async () => {
   assert.match(source, /frontmost_window_bounds/);
   assert.match(source, /generate_handler!\[[^\]]*frontmost_window_bounds/s);
   assert.match(source, /osascript/);
+  assert.match(source, /AXFullScreen/);
   assert.match(source, /bestArea/);
   assert.doesNotMatch(source, /fn frontmost_window_bounds\(\) -> Option<NativeWindowBounds> \{\s*None\s*\}/);
 });

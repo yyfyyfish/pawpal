@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createScreenEdgeSurfaces, createWindowTopSurface } from "../src/core/patrolSurface";
+import {
+  createScreenEdgeSurfaces,
+  createScreenRoamSurface,
+  createWindowTopSurface
+} from "../src/core/patrolSurface";
 import { choosePatrolSurface, shouldMigrateSurface } from "../src/core/patrolSelector";
 import { getSafeArea } from "../src/core/screen";
 
@@ -12,7 +16,7 @@ const safeArea = getSafeArea({
   scaleFactor: 2
 });
 
-test("surface selector prefers front app surfaces over screen fallback", () => {
+test("surface selector prefers screen roam while keeping apps available for rest", () => {
   const frontWindow = createWindowTopSurface("front-window:Safari", {
     x: 200,
     y: 120,
@@ -23,20 +27,20 @@ test("surface selector prefers front app surfaces over screen fallback", () => {
   const selected = choosePatrolSurface({
     preferred: "front-window",
     frontWindow,
-    fallbackSurfaces: createScreenEdgeSurfaces(safeArea)
+    fallbackSurfaces: [createScreenRoamSurface(safeArea), ...createScreenEdgeSurfaces(safeArea)]
   });
 
-  assert.equal(selected.id, "front-window:Safari");
+  assert.equal(selected.id, "screen-roam");
 });
 
 test("surface selector falls back to screen edges when no app surface exists", () => {
   const selected = choosePatrolSurface({
     preferred: "front-window",
     frontWindow: null,
-    fallbackSurfaces: createScreenEdgeSurfaces(safeArea)
+    fallbackSurfaces: [createScreenRoamSurface(safeArea), ...createScreenEdgeSurfaces(safeArea)]
   });
 
-  assert.equal(selected.id, "screen-bottom");
+  assert.equal(selected.id, "screen-roam");
 });
 
 test("surface selector holds the current app surface during brief detection gaps", () => {
@@ -52,10 +56,10 @@ test("surface selector holds the current app surface during brief detection gaps
     currentSurface,
     frontWindow: null,
     frontWindowMissingMs: 3_000,
-    fallbackSurfaces: createScreenEdgeSurfaces(safeArea)
+    fallbackSurfaces: [createScreenRoamSurface(safeArea), ...createScreenEdgeSurfaces(safeArea)]
   });
 
-  assert.equal(selected.id, "front-window:Safari");
+  assert.equal(selected.id, "screen-roam");
 });
 
 test("surface selector falls back after a sustained front-window detection gap", () => {
@@ -71,10 +75,10 @@ test("surface selector falls back after a sustained front-window detection gap",
     currentSurface,
     frontWindow: null,
     frontWindowMissingMs: 12_000,
-    fallbackSurfaces: createScreenEdgeSurfaces(safeArea)
+    fallbackSurfaces: [createScreenRoamSurface(safeArea), ...createScreenEdgeSurfaces(safeArea)]
   });
 
-  assert.equal(selected.id, "screen-bottom");
+  assert.equal(selected.id, "screen-roam");
 });
 
 test("surface migration waits until the target changes and cooldown has elapsed", () => {
