@@ -116,13 +116,16 @@ test("pet app treats user dragging as a new patrol anchor", async () => {
   const source = await readFile("src/ui/PetApp.tsx", "utf8");
 
   assert.match(source, /manualDragAnchor/);
+  assert.match(source, /pendingManualDragAnchor/);
+  assert.match(source, /commitManualDragAnchor/);
   assert.match(source, /createAnchoredPatrolState/);
-  assert.match(source, /applyPetMove\(current, position, "drag"\)/);
+  assert.match(source, /applyPetMove\(current, anchor, "drag"\)/);
   assert.match(source, /dragAnchorVersion/);
   assert.match(source, /!manualDragging\.current/);
   assert.match(source, /dragInteractionUntil/);
   assert.match(source, /isProgrammaticMoveEcho/);
   assert.match(source, /ignorePettingUntil/);
+  assert.doesNotMatch(source, /setInteraction\(\(current\) => applyPetMove\(current, position, "drag"\)\)/);
 });
 
 test("native tray exposes every Phase 2 menu command", async () => {

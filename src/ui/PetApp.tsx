@@ -72,6 +72,7 @@ export function PetApp() {
   const companionState = useRef(createInitialCompanionState());
   const manualDragging = useRef(false);
   const manualDragAnchor = useRef<Point | null>(null);
+  const pendingManualDragAnchor = useRef<Point | null>(null);
   const dragAnchorVersion = useRef(0);
   const dragInteractionUntil = useRef(0);
   const ignorePettingUntil = useRef(0);
@@ -91,10 +92,31 @@ export function PetApp() {
     }
 
     dragSettleTimeout.current = window.setTimeout(() => {
-      manualDragging.current = false;
-      ignorePettingUntil.current = performance.now() + PETTING_AFTER_DRAG_SUPPRESS_MS;
-      dragSettleTimeout.current = null;
+      commitManualDragAnchor();
     }, DRAG_SETTLE_MS);
+  };
+
+  const commitManualDragAnchor = () => {
+    manualDragging.current = false;
+    dragInteractionUntil.current = 0;
+    ignorePettingUntil.current = performance.now() + PETTING_AFTER_DRAG_SUPPRESS_MS;
+    dragSettleTimeout.current = null;
+
+    const anchor = pendingManualDragAnchor.current;
+    pendingManualDragAnchor.current = null;
+    if (!anchor) return;
+
+    if (
+      manualDragAnchor.current &&
+      manualDragAnchor.current.x === anchor.x &&
+      manualDragAnchor.current.y === anchor.y
+    ) {
+      return;
+    }
+
+    manualDragAnchor.current = anchor;
+    dragAnchorVersion.current += 1;
+    setInteraction((current) => applyPetMove(current, anchor, "drag"));
   };
 
   const beginManualDrag = () => {
@@ -127,7 +149,11 @@ export function PetApp() {
 
     loadInteractionState()
       .then((state) => {
-        if (!disposed) setInteraction(state);
+        if (!disposed) {
+          manualDragAnchor.current = state.position;
+          dragAnchorVersion.current += 1;
+          setInteraction(state);
+        }
       })
       .catch(() => undefined);
 
@@ -182,11 +208,9 @@ export function PetApp() {
         }
 
         if (manualDragging.current || performance.now() <= dragInteractionUntil.current) {
-          manualDragAnchor.current = position;
-          dragAnchorVersion.current += 1;
+          pendingManualDragAnchor.current = position;
           ignorePettingUntil.current = performance.now() + PETTING_AFTER_DRAG_SUPPRESS_MS;
           scheduleDragSettle();
-          setInteraction((current) => applyPetMove(current, position, "drag"));
           return;
         }
 
