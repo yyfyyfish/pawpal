@@ -287,6 +287,77 @@ test("patrol planner chooses an unblocked rest spot while typing is active", () 
   );
 });
 
+test("patrol planner wakes when typing starts under a sleeping cat", () => {
+  const typingZone = createTypingAvoidanceZone(
+    {
+      x: 230,
+      y: 10,
+      width: 160,
+      height: 140,
+      source: "focused-element",
+      appName: "Editor"
+    },
+    { nowMs: 40_000, petSize: 96 }
+  )!;
+  const sleeping = {
+    ...createInitialPatrolState(surface),
+    mode: "sleeping" as const,
+    modeMs: 1_000,
+    position: { x: 260, y: 40 }
+  };
+
+  const next = planPatrolStep({
+    state: sleeping,
+    surface,
+    deltaMs: 250,
+    petSize: 96,
+    nowMs: 40_100,
+    avoidanceZones: [typingZone]
+  });
+
+  assert.equal(next.mode, "waking");
+  assert.equal(next.behavior, "wake");
+});
+
+test("patrol planner retreats instead of perching inside a typing zone", () => {
+  const typingZone = createTypingAvoidanceZone(
+    {
+      x: 300,
+      y: 260,
+      width: 220,
+      height: 180,
+      source: "focused-element",
+      appName: "Terminal"
+    },
+    { nowMs: 50_000, petSize: 96 }
+  )!;
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    mode: "perching" as const,
+    pauseMs: 1_200,
+    position: { x: 340, y: 300 },
+    roamTarget: null
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    deltaMs: 1_000,
+    petSize: 96,
+    speedPxPerMs: 0.08,
+    nowMs: 50_100,
+    avoidanceZones: [typingZone]
+  });
+
+  assert.equal(next.behavior, "walk");
+  assert.notDeepEqual(next.position, state.position);
+  assert.equal(next.pauseMs, 0);
+  assert.equal(
+    petRectOverlapsAvoidanceZones(next.position, 96, [typingZone], 50_100),
+    false
+  );
+});
+
 test("patrol planner wakes and resets when the app surface changes", () => {
   const nextSurface = createWindowTopSurface("front-window:Browser", {
     x: 300,

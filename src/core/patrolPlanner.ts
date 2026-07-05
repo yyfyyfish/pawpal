@@ -55,6 +55,7 @@ const PERCH_DURATION_MS = 1_400;
 const SLEEP_DURATION_MS = 5_000;
 const WAKE_DURATION_MS = 700;
 const DRAG_ANCHOR_PAUSE_MS = 1_500;
+const AVOIDANCE_RETREAT_SPEED_MULTIPLIER = 4;
 
 export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
   return {
@@ -106,8 +107,27 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   const appRestSurface =
     input.restSurface ?? (input.surface.kind !== "screen-roam" ? input.surface : null);
   const lanePosition = clampToLane(state.position, input.surface, petSize);
+  const currentOverlapsAvoidance = overlapsAvoidance(
+    state.position,
+    petSize,
+    avoidanceZones,
+    nowMs
+  );
 
   if (state.mode === "sleeping") {
+    if (currentOverlapsAvoidance) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        mode: "waking",
+        modeMs: 0,
+        position: state.position,
+        frameProgress,
+        behavior: "wake",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
     const modeMs = state.modeMs + input.deltaMs;
     if (modeMs < SLEEP_DURATION_MS) {
       return {
@@ -198,7 +218,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     };
   }
 
-  if (state.pauseMs > 0) {
+  if (state.pauseMs > 0 && !currentOverlapsAvoidance) {
     return {
       ...state,
       stableSurfaceMs,
@@ -228,7 +248,9 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     const nextPosition = moveToward(
       state.position,
       clampToRoamBounds(target, input.surface, petSize),
-      input.deltaMs * speed,
+      input.deltaMs *
+        speed *
+        (currentOverlapsAvoidance ? AVOIDANCE_RETREAT_SPEED_MULTIPLIER : 1),
       input.surface,
       petSize
     );
