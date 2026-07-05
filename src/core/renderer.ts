@@ -13,7 +13,7 @@ export function createSpriteRenderer(canvas: HTMLCanvasElement) {
   }
 
   let assets: SpriteRuntimeAssets | null = null;
-  context.imageSmoothingEnabled = false;
+  context.imageSmoothingEnabled = true;
 
   return {
     setSpriteAssets(nextAssets: SpriteRuntimeAssets) {

@@ -93,10 +93,13 @@ export async function listenForPetMoves(
 ): Promise<() => void> {
   const window = getCurrentWindow();
 
-  return window.onMoved((event) => {
+  return window.onMoved(async (event) => {
+    const scaleFactor = await window.scaleFactor();
+    const logicalPosition = event.payload.toLogical(scaleFactor);
+
     onMove({
-      x: event.payload.x,
-      y: event.payload.y
+      x: logicalPosition.x,
+      y: logicalPosition.y
     });
   });
 }
@@ -129,13 +132,18 @@ async function getClampedWindowPosition(
   const monitors = await availableMonitors();
   const monitor = chooseNearestMonitor(
     position,
-    monitors.map((candidate) => ({
-      x: candidate.position.x,
-      y: candidate.position.y,
-      width: candidate.size.width,
-      height: candidate.size.height,
-      scaleFactor: candidate.scaleFactor
-    }))
+    monitors.map((candidate) => {
+      const logicalPosition = candidate.position.toLogical(candidate.scaleFactor);
+      const logicalSize = candidate.size.toLogical(candidate.scaleFactor);
+
+      return {
+        x: logicalPosition.x,
+        y: logicalPosition.y,
+        width: logicalSize.width,
+        height: logicalSize.height,
+        scaleFactor: candidate.scaleFactor
+      };
+    })
   );
 
   if (!monitor) return position;

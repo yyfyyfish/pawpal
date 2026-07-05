@@ -11,6 +11,7 @@
   },
   "app": {
     "withGlobalTauri": false,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "pet",
@@ -35,7 +36,7 @@
         "alwaysOnTop": false,
         "resizable": false,
         "shadow": true,
-        "skipTaskbar": true,
+        "skipTaskbar": false,
         "visible": false
       }
     ],

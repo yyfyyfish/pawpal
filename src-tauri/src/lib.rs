@@ -17,6 +17,10 @@ pub fn run() {
                 configure_pet_window(&window);
             }
             configure_tray(app)?;
+            if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

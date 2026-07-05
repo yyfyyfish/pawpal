@@ -6,7 +6,7 @@ export const DEFAULT_PREFERENCES: PetPreferences = {
   paused: false,
   scale: 2,
   energy: "normal",
-  clickThrough: true,
+  clickThrough: false,
   launchAtLogin: false
 };
 

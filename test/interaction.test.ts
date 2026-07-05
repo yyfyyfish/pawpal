@@ -26,7 +26,7 @@ test("pet commands update interaction preferences predictably", () => {
   assert.equal(muted.preferences.muted, true);
 
   const clickThrough = applyPetCommand(muted, { type: "toggle-click-through" });
-  assert.equal(clickThrough.preferences.clickThrough, false);
+  assert.equal(clickThrough.preferences.clickThrough, true);
 });
 
 test("size commands clamp scale", () => {
