@@ -1,4 +1,9 @@
-import { LogicalPosition, LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  LogicalPosition,
+  LogicalSize,
+  availableMonitors,
+  getCurrentWindow
+} from "@tauri-apps/api/window";
 import { emitTo } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
@@ -15,7 +20,8 @@ import {
   type InteractionState,
   type PetCommand
 } from "../core/interaction";
-import type { PetPreferences, Point } from "../core/types";
+import { chooseNearestMonitor, clampToSafeArea, getSafeArea } from "../core/screen";
+import type { Point } from "../core/types";
 
 const STORE_PATH = "pawpal.json";
 const COMMAND_EVENT = "pawpal://command";
@@ -39,10 +45,14 @@ export async function saveInteractionState(state: InteractionState): Promise<voi
 export async function applyWindowState(state: InteractionState): Promise<void> {
   const window = getCurrentWindow();
   const size = BASE_WINDOW_SIZE * state.preferences.scale;
+  const position = await getClampedWindowPosition(state.position, {
+    width: size,
+    height: size
+  });
 
   await window.setIgnoreCursorEvents(state.preferences.clickThrough);
   await window.setSize(new LogicalSize(size, size));
-  await window.setPosition(new LogicalPosition(state.position.x, state.position.y));
+  await window.setPosition(new LogicalPosition(position.x, position.y));
 }
 
 export async function applyLaunchAtLogin(enabled: boolean): Promise<void> {
@@ -110,4 +120,25 @@ function normalizePosition(value: unknown): Point {
     x: position.x,
     y: position.y
   };
+}
+
+async function getClampedWindowPosition(
+  position: Point,
+  windowSize: { width: number; height: number }
+): Promise<Point> {
+  const monitors = await availableMonitors();
+  const monitor = chooseNearestMonitor(
+    position,
+    monitors.map((candidate) => ({
+      x: candidate.position.x,
+      y: candidate.position.y,
+      width: candidate.size.width,
+      height: candidate.size.height,
+      scaleFactor: candidate.scaleFactor
+    }))
+  );
+
+  if (!monitor) return position;
+
+  return clampToSafeArea(position, getSafeArea(monitor), windowSize);
 }
