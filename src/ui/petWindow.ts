@@ -26,6 +26,11 @@ import {
   createScreenRoamSurface,
   type PatrolSurface
 } from "../core/patrolSurface";
+import {
+  normalizeCompanionMemory,
+  toStoredCompanionMemory,
+  type CompanionMemory
+} from "../core/memory";
 import type { Point } from "../core/types";
 
 const STORE_PATH = "pawpal.json";
@@ -44,6 +49,17 @@ export async function saveInteractionState(state: InteractionState): Promise<voi
   const store = await load(STORE_PATH, { autoSave: true, defaults: {} });
   await store.set("preferences", toStoredPreferences(state.preferences));
   await store.set("position", state.position);
+  await store.save();
+}
+
+export async function loadCompanionMemory(): Promise<CompanionMemory> {
+  const store = await load(STORE_PATH, { autoSave: true, defaults: {} });
+  return normalizeCompanionMemory(await store.get("companionMemory"));
+}
+
+export async function saveCompanionMemory(memory: CompanionMemory): Promise<void> {
+  const store = await load(STORE_PATH, { autoSave: true, defaults: {} });
+  await store.set("companionMemory", toStoredCompanionMemory(memory));
   await store.save();
 }
 
