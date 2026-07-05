@@ -24,6 +24,19 @@
         "shadow": false,
         "skipTaskbar": true,
         "visible": true
+      },
+      {
+        "label": "settings",
+        "title": "PawPal Settings",
+        "width": 360,
+        "height": 360,
+        "transparent": false,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "resizable": false,
+        "shadow": true,
+        "skipTaskbar": true,
+        "visible": false
       }
     ],
     "security": {

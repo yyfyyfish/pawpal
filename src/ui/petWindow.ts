@@ -1,6 +1,12 @@
 import { LogicalPosition, LogicalSize, getCurrentWindow } from "@tauri-apps/api/window";
+import { emitTo } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
-import { DEFAULT_PREFERENCES } from "../core/preferences";
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import {
+  DEFAULT_PREFERENCES,
+  normalizePreferences,
+  toStoredPreferences
+} from "../core/preferences";
 import {
   DEFAULT_WINDOW_POSITION,
   applyPetCommand,
@@ -25,7 +31,7 @@ export async function loadInteractionState(): Promise<InteractionState> {
 
 export async function saveInteractionState(state: InteractionState): Promise<void> {
   const store = await load(STORE_PATH, { autoSave: true, defaults: {} });
-  await store.set("preferences", state.preferences);
+  await store.set("preferences", toStoredPreferences(state.preferences));
   await store.set("position", state.position);
   await store.save();
 }
@@ -37,6 +43,16 @@ export async function applyWindowState(state: InteractionState): Promise<void> {
   await window.setIgnoreCursorEvents(state.preferences.clickThrough);
   await window.setSize(new LogicalSize(size, size));
   await window.setPosition(new LogicalPosition(state.position.x, state.position.y));
+}
+
+export async function applyLaunchAtLogin(enabled: boolean): Promise<void> {
+  const current = await isEnabled();
+  if (enabled && !current) {
+    await enable();
+  }
+  if (!enabled && current) {
+    await disable();
+  }
 }
 
 export async function startPetDrag(): Promise<void> {
@@ -58,6 +74,10 @@ export async function listenForPetCommands(
   });
 }
 
+export async function sendPetCommandToPet(command: PetCommand): Promise<void> {
+  await emitTo("pet", COMMAND_EVENT, command);
+}
+
 export async function listenForPetMoves(
   onMove: (position: Point) => void
 ): Promise<() => void> {
@@ -76,15 +96,6 @@ export function reduceInteractionState(
   command: PetCommand
 ): InteractionState {
   return applyPetCommand(state, command);
-}
-
-function normalizePreferences(value: unknown): PetPreferences {
-  if (!value || typeof value !== "object") return DEFAULT_PREFERENCES;
-
-  return {
-    ...DEFAULT_PREFERENCES,
-    ...(value as Partial<PetPreferences>)
-  };
 }
 
 function normalizePosition(value: unknown): Point {
