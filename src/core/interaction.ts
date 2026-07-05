@@ -6,9 +6,9 @@ import type {
   Point
 } from "./types";
 
-export const MIN_SCALE = 1;
-export const MAX_SCALE = 4;
-export const SCALE_STEP = 0.25;
+export const MIN_SCALE = 0.75;
+export const MAX_SCALE = 2.5;
+export const SCALE_STEP = 0.125;
 
 export const DEFAULT_WINDOW_POSITION: Point = {
   x: 32,

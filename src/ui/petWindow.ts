@@ -36,10 +36,16 @@ import type { Point } from "../core/types";
 const STORE_PATH = "pawpal.json";
 const COMMAND_EVENT = "pawpal://command";
 const BASE_WINDOW_SIZE = 96;
+const PREFERENCE_SCHEMA_VERSION = 2;
+const LEGACY_DEFAULT_SCALE = 2;
 
 export async function loadInteractionState(): Promise<InteractionState> {
   const store = await load(STORE_PATH, { autoSave: true, defaults: {} });
-  const preferences = normalizePreferences(await store.get("preferences"));
+  const storedPreferences = await store.get("preferences");
+  const preferenceVersion = await store.get("preferenceVersion");
+  const preferences = normalizePreferences(
+    migratePreferences(storedPreferences, preferenceVersion)
+  );
   const position = normalizePosition(await store.get("position"));
 
   return { preferences, position };
@@ -48,6 +54,7 @@ export async function loadInteractionState(): Promise<InteractionState> {
 export async function saveInteractionState(state: InteractionState): Promise<void> {
   const store = await load(STORE_PATH, { autoSave: true, defaults: {} });
   await store.set("preferences", toStoredPreferences(state.preferences));
+  await store.set("preferenceVersion", PREFERENCE_SCHEMA_VERSION);
   await store.set("position", state.position);
   await store.save();
 }
@@ -187,6 +194,23 @@ function normalizePosition(value: unknown): Point {
     x: position.x,
     y: position.y
   };
+}
+
+function migratePreferences(value: unknown, version: unknown): unknown {
+  if (version === PREFERENCE_SCHEMA_VERSION || !value || typeof value !== "object") {
+    return value;
+  }
+
+  const preferences = value as Partial<typeof DEFAULT_PREFERENCES>;
+  const storedScale = preferences.scale;
+  if (storedScale === LEGACY_DEFAULT_SCALE) {
+    return {
+      ...preferences,
+      scale: DEFAULT_PREFERENCES.scale
+    };
+  }
+
+  return value;
 }
 
 async function getClampedWindowPosition(

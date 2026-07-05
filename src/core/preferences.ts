@@ -4,7 +4,7 @@ import { MAX_SCALE, MIN_SCALE } from "./interaction";
 export const DEFAULT_PREFERENCES: PetPreferences = {
   muted: false,
   paused: false,
-  scale: 2,
+  scale: 1.25,
   energy: "normal",
   clickThrough: false,
   launchAtLogin: false,

@@ -10,11 +10,19 @@ import {
   DEFAULT_WINDOW_POSITION,
   MAX_SCALE,
   MIN_SCALE,
+  SCALE_STEP,
   applyPetCommand,
   isPetCommand,
   menuIdToCommand,
   type PetCommand
 } from "../src/core/interaction";
+
+test("default size range keeps the pet compact on launch", () => {
+  assert.equal(DEFAULT_PREFERENCES.scale, 1.25);
+  assert.equal(MIN_SCALE, 0.75);
+  assert.equal(MAX_SCALE, 2.5);
+  assert.equal(SCALE_STEP, 0.125);
+});
 
 test("stored preferences are normalized and clamped", () => {
   const preferences = normalizePreferences({
@@ -106,4 +114,14 @@ test("tauri config and native tray expose the settings window", async () => {
   assert.match(rust, /open-settings/);
   assert.match(rust, /patrol-on/);
   assert.match(rust, /tauri_plugin_autostart/);
+});
+
+test("stored legacy default scale migrates to the compact default once", async () => {
+  const source = await readFile("src/ui/petWindow.ts", "utf8");
+
+  assert.match(source, /PREFERENCE_SCHEMA_VERSION = 2/);
+  assert.match(source, /LEGACY_DEFAULT_SCALE = 2/);
+  assert.match(source, /preferenceVersion/);
+  assert.match(source, /storedScale === LEGACY_DEFAULT_SCALE/);
+  assert.match(source, /scale: DEFAULT_PREFERENCES\.scale/);
 });
