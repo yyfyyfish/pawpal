@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::process::Command;
 use tauri::{menu::MenuBuilder, tray::TrayIconBuilder, Emitter, Manager, WebviewWindow};
 use tauri_plugin_autostart::MacosLauncher;
 
@@ -41,7 +42,72 @@ pub fn run() {
 
 #[tauri::command]
 fn frontmost_window_bounds() -> Option<NativeWindowBounds> {
-    None
+    let script = r#"
+tell application "System Events"
+  set frontApp to first application process whose frontmost is true
+  set appName to name of frontApp
+  if appName is "PawPal" or appName is "pawpal" then return ""
+  if (count of windows of frontApp) is 0 then return ""
+  set bestArea to 0
+  set bestX to 0
+  set bestY to 0
+  set bestWidth to 0
+  set bestHeight to 0
+  repeat with candidateWindow in windows of frontApp
+    try
+      set windowPosition to position of candidateWindow
+      set windowSize to size of candidateWindow
+      set windowWidth to item 1 of windowSize
+      set windowHeight to item 2 of windowSize
+      set windowArea to windowWidth * windowHeight
+      if windowWidth > 120 and windowHeight > 120 and windowArea > bestArea then
+        set bestArea to windowArea
+        set bestX to item 1 of windowPosition
+        set bestY to item 2 of windowPosition
+        set bestWidth to windowWidth
+        set bestHeight to windowHeight
+      end if
+    end try
+  end repeat
+  if bestArea is 0 then return ""
+  return appName & tab & bestX & tab & bestY & tab & bestWidth & tab & bestHeight
+end tell
+"#;
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    parse_window_bounds(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_window_bounds(value: &str) -> Option<NativeWindowBounds> {
+    let parts: Vec<&str> = value.trim().split('\t').collect();
+    if parts.len() != 5 {
+        return None;
+    }
+
+    let x = parts[1].parse::<f64>().ok()?;
+    let y = parts[2].parse::<f64>().ok()?;
+    let width = parts[3].parse::<f64>().ok()?;
+    let height = parts[4].parse::<f64>().ok()?;
+
+    if width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+
+    Some(NativeWindowBounds {
+        x,
+        y,
+        width,
+        height,
+        app_name: Some(parts[0].to_string()),
+    })
 }
 
 fn configure_pet_window(window: &WebviewWindow) {

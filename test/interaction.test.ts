@@ -7,6 +7,7 @@ import {
   MAX_SCALE,
   MIN_SCALE,
   applyPetCommand,
+  applyPetMove,
   isPetCommand,
   type PetCommand
 } from "../src/core/interaction";
@@ -62,6 +63,22 @@ test("reset position command restores default window placement", () => {
   );
 
   assert.deepEqual(reset.position, DEFAULT_WINDOW_POSITION);
+});
+
+test("patrol movement does not overwrite stored drag position", () => {
+  const state = {
+    preferences: { ...DEFAULT_PREFERENCES, patrolEnabled: true },
+    position: { x: 400, y: 120 }
+  };
+
+  assert.deepEqual(applyPetMove(state, { x: 800, y: 240 }), state);
+  assert.deepEqual(
+    applyPetMove(
+      { ...state, preferences: { ...state.preferences, patrolEnabled: false } },
+      { x: 800, y: 240 }
+    ).position,
+    { x: 800, y: 240 }
+  );
 });
 
 test("native tray exposes every Phase 2 menu command", async () => {

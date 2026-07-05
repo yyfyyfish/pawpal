@@ -78,6 +78,15 @@ export function applyPetCommand(state: InteractionState, command: PetCommand): I
   }
 }
 
+export function applyPetMove(state: InteractionState, position: Point): InteractionState {
+  if (state.preferences.patrolEnabled) return state;
+
+  return {
+    ...state,
+    position
+  };
+}
+
 export function isPetCommand(value: unknown): value is PetCommand {
   if (!value || typeof value !== "object" || !("type" in value)) return false;
 

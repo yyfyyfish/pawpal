@@ -11,7 +11,11 @@ import type { PatrolSurface } from "../core/patrolSurface";
 import { DEFAULT_PREFERENCES } from "../core/preferences";
 import { createSpriteRenderer } from "../core/renderer";
 import type { PetState } from "../core/types";
-import { DEFAULT_WINDOW_POSITION, type InteractionState } from "../core/interaction";
+import {
+  DEFAULT_WINDOW_POSITION,
+  applyPetMove,
+  type InteractionState
+} from "../core/interaction";
 import {
   applyWindowState,
   applyLaunchAtLogin,
@@ -81,7 +85,7 @@ export function PetApp() {
 
     if (windowLabel === "pet") {
       void listenForPetMoves((position) => {
-        setInteraction((current) => ({ ...current, position }));
+        setInteraction((current) => applyPetMove(current, position));
       }).then((unlisten) => {
         unlistenMoves = unlisten;
       });
