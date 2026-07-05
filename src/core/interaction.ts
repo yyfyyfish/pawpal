@@ -86,6 +86,7 @@ export function applyPetMove(
   source: PetMoveSource = "patrol"
 ): InteractionState {
   if (state.preferences.patrolEnabled && source !== "drag") return state;
+  if (state.position.x === position.x && state.position.y === position.y) return state;
 
   return {
     ...state,

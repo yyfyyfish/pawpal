@@ -102,6 +102,7 @@ test("patrol movement does not overwrite stored drag position", () => {
     applyPetMove(state, { x: 820, y: 260 }, "drag").position,
     { x: 820, y: 260 }
   );
+  assert.equal(applyPetMove(state, state.position, "drag"), state);
   assert.deepEqual(
     applyPetMove(
       { ...state, preferences: { ...state.preferences, patrolEnabled: false } },
@@ -119,6 +120,9 @@ test("pet app treats user dragging as a new patrol anchor", async () => {
   assert.match(source, /applyPetMove\(current, position, "drag"\)/);
   assert.match(source, /dragAnchorVersion/);
   assert.match(source, /!manualDragging\.current/);
+  assert.match(source, /dragInteractionUntil/);
+  assert.match(source, /isProgrammaticMoveEcho/);
+  assert.match(source, /ignorePettingUntil/);
 });
 
 test("native tray exposes every Phase 2 menu command", async () => {
