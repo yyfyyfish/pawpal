@@ -1,6 +1,15 @@
 import { chooseNextBehavior, nextDecisionDelay } from "./scheduler";
 import type { PetState, PetTickInput, Point } from "./types";
 
+const ONE_SHOT_DURATIONS_MS = {
+  wake: 600,
+  look: 700,
+  meow: 650,
+  scratch: 800,
+  groom: 1200,
+  pounce: 500
+} as const;
+
 export function createInitialPetState(): PetState {
   return {
     behavior: "idle",
@@ -13,6 +22,8 @@ export function createInitialPetState(): PetState {
 }
 
 export function tickPet(state: PetState, input: PetTickInput): PetState {
+  const random = input.random ?? Math.random;
+
   if (input.preferences.paused) {
     return {
       ...state,
@@ -23,17 +34,32 @@ export function tickPet(state: PetState, input: PetTickInput): PetState {
 
   const elapsedInStateMs = state.elapsedInStateMs + input.deltaMs;
 
+  if (isOneShotBehavior(state.behavior) && elapsedInStateMs >= ONE_SHOT_DURATIONS_MS[state.behavior]) {
+    return {
+      ...state,
+      behavior: "idle",
+      target: null,
+      facing: faceCursor(state.facing, state.position, input.cursor),
+      elapsedInStateMs: 0,
+      nextDecisionMs: nextDecisionDelay(input.preferences.energy, random)
+    };
+  }
+
   if (elapsedInStateMs >= state.nextDecisionMs) {
-    const behavior = chooseNextBehavior(input.preferences.energy);
+    const behavior = chooseNextBehavior(input.preferences.energy, random);
     const target = behavior === "walk" ? chooseWalkTarget(state.position, input) : null;
 
     return {
       ...state,
       behavior,
       target,
-      facing: target ? (target.x < state.position.x ? "left" : "right") : state.facing,
+      facing: target
+        ? target.x < state.position.x
+          ? "left"
+          : "right"
+        : faceCursor(state.facing, state.position, input.cursor),
       elapsedInStateMs: 0,
-      nextDecisionMs: nextDecisionDelay(input.preferences.energy)
+      nextDecisionMs: nextDecisionDelay(input.preferences.energy, random)
     };
   }
 
@@ -52,13 +78,15 @@ export function tickPet(state: PetState, input: PetTickInput): PetState {
 
   return {
     ...state,
+    facing: faceCursor(state.facing, state.position, input.cursor),
     elapsedInStateMs
   };
 }
 
 function chooseWalkTarget(position: Point, input: PetTickInput): Point {
+  const random = input.random ?? Math.random;
   const range = input.preferences.energy === "playful" ? 120 : 72;
-  const offset = Math.round((Math.random() * 2 - 1) * range);
+  const offset = Math.round((random() * 2 - 1) * range);
   const x = clamp(position.x + offset, 32, Math.max(32, input.screen.width - 32));
 
   return {
@@ -86,4 +114,15 @@ function distance(a: Point, b: Point): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function faceCursor(current: PetState["facing"], position: Point, cursor: Point | null): PetState["facing"] {
+  if (!cursor) return current;
+  return cursor.x < position.x ? "left" : "right";
+}
+
+function isOneShotBehavior(
+  behavior: PetState["behavior"]
+): behavior is keyof typeof ONE_SHOT_DURATIONS_MS {
+  return behavior in ONE_SHOT_DURATIONS_MS;
 }

@@ -1,0 +1,27 @@
+{
+  "image": "/assets/sprites/cat/cat.svg",
+  "cellWidth": 64,
+  "cellHeight": 64,
+  "frames": {
+    "idle-0": { "x": 0, "y": 0, "width": 64, "height": 64 },
+    "walk-0": { "x": 64, "y": 0, "width": 64, "height": 64 },
+    "sleep-0": { "x": 128, "y": 0, "width": 64, "height": 64 },
+    "wake-0": { "x": 192, "y": 0, "width": 64, "height": 64 },
+    "look-0": { "x": 256, "y": 0, "width": 64, "height": 64 },
+    "meow-0": { "x": 320, "y": 0, "width": 64, "height": 64 },
+    "scratch-0": { "x": 384, "y": 0, "width": 64, "height": 64 },
+    "groom-0": { "x": 448, "y": 0, "width": 64, "height": 64 },
+    "pounce-0": { "x": 512, "y": 0, "width": 64, "height": 64 }
+  },
+  "animations": {
+    "idle": { "frames": ["idle-0"], "frameMs": 180, "loop": true },
+    "walk": { "frames": ["walk-0"], "frameMs": 120, "loop": true },
+    "sleep": { "frames": ["sleep-0"], "frameMs": 240, "loop": true },
+    "wake": { "frames": ["wake-0"], "frameMs": 140, "loop": false },
+    "look": { "frames": ["look-0"], "frameMs": 180, "loop": false },
+    "meow": { "frames": ["meow-0"], "frameMs": 140, "loop": false, "soundCue": "meow-soft" },
+    "scratch": { "frames": ["scratch-0"], "frameMs": 90, "loop": false, "soundCue": "scratch-soft" },
+    "groom": { "frames": ["groom-0"], "frameMs": 130, "loop": false, "soundCue": "purr-short" },
+    "pounce": { "frames": ["pounce-0"], "frameMs": 80, "loop": false }
+  }
+}

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="576" height="64" viewBox="0 0 576 64">
+  <defs>
+    <g id="catIdle">
+      <path d="M13 25 10 7c-.4-2.8 2.4-4.9 4.9-3.5L28 11h8l13.1-7.5c2.5-1.4 5.3.7 4.9 3.5l-3 18c4 4.2 6 9.6 6 15.2 0 12.1-10.8 20.8-25 20.8S7 52.3 7 40.2c0-5.6 2-11 6-15.2Z" fill="#fff" stroke="#18191b" stroke-width="2.8" stroke-linejoin="round"/>
+      <path d="M14.8 8.7 26 15.4 18.3 24Z" fill="#ff8794"/>
+      <path d="M49.2 8.7 38 15.4 45.7 24Z" fill="#ff8794"/>
+      <ellipse cx="32" cy="38" rx="19" ry="20" fill="#765949"/>
+      <circle cx="22.5" cy="35" r="3.2" fill="#101114"/>
+      <circle cx="41.5" cy="35" r="3.2" fill="#101114"/>
+      <circle cx="23.5" cy="33.8" r=".8" fill="#fff"/>
+      <circle cx="42.5" cy="33.8" r=".8" fill="#fff"/>
+      <path d="M28.5 43.2c1.8 3 5.2 3 7 0" fill="none" stroke="#18191b" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M31.8 44.8c1.3 1.5 3.4 1.4 4.7-.1.1 3.5-4.5 4-4.7.1Z" fill="#ff8fa3"/>
+      <path d="M14 40c-5.5-1.4-9.2-.5-12 1.2M14 45c-5.6.2-9.2 1.5-11.5 3.2M50 40c5.5-1.4 9.2-.5 12 1.2M50 45c5.6.2 9.2 1.5 11.5 3.2" fill="none" stroke="#18191b" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M12.5 54.5h39" stroke="#18191b" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M15 49c1.6-5.8 6.8-8 10.4-4.4 3.5 3.5 1.5 10.4-4.7 11.2-3.7.5-6.5-2.7-5.7-6.8Z" fill="#765949" stroke="#18191b" stroke-width="2.2"/>
+      <circle cx="20.6" cy="49.1" r="1.9" fill="#ff8794"/>
+      <circle cx="17.4" cy="50.2" r="1.3" fill="#ff8794"/>
+      <circle cx="23.8" cy="50.4" r="1.3" fill="#ff8794"/>
+    </g>
+    <g id="catSleep">
+      <path d="M13 27 10.5 10c-.4-2.8 2.4-4.8 4.9-3.4L27 13h10l11.6-6.4c2.5-1.4 5.3.6 4.9 3.4L51 27c3 3.4 4.6 7.5 4.6 12 0 11-10.1 18.5-23.6 18.5S8.4 50 8.4 39c0-4.5 1.6-8.6 4.6-12Z" fill="#fff" stroke="#18191b" stroke-width="2.8" stroke-linejoin="round"/>
+      <ellipse cx="32" cy="39" rx="19" ry="17" fill="#765949"/>
+      <path d="M19 35c2.5 2 5 2 7.5 0M37.5 35c2.5 2 5 2 7.5 0" fill="none" stroke="#18191b" stroke-width="2.1" stroke-linecap="round"/>
+      <path d="M29 44c2 1.5 4 1.5 6 0" fill="none" stroke="#18191b" stroke-width="2" stroke-linecap="round"/>
+      <path d="M10 54.5h44" stroke="#18191b" stroke-width="2.4" stroke-linecap="round"/>
+      <text x="47" y="20" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#765949">z</text>
+    </g>
+  </defs>
+  <use href="#catIdle" x="0" y="0"/>
+  <g transform="translate(64 0)">
+    <use href="#catIdle"/>
+    <path d="M45 53c3.8 1.2 7 .6 9.5-2" fill="none" stroke="#18191b" stroke-width="2.3" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(128 0)"><use href="#catSleep"/></g>
+  <g transform="translate(192 0)">
+    <use href="#catIdle"/>
+    <path d="M19 35c2.5 2 5 2 7.5 0" fill="none" stroke="#18191b" stroke-width="2.1" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(256 0)">
+    <use href="#catIdle"/>
+    <circle cx="24" cy="35" r="3.2" fill="#101114"/>
+    <circle cx="44" cy="35" r="3.2" fill="#101114"/>
+  </g>
+  <g transform="translate(320 0)">
+    <use href="#catIdle"/>
+    <ellipse cx="32" cy="45" rx="4.5" ry="3.5" fill="#ff8fa3" stroke="#18191b" stroke-width="1.8"/>
+  </g>
+  <g transform="translate(384 0)">
+    <use href="#catIdle"/>
+    <path d="M55 43h8M55 47h8M55 51h8" stroke="#18191b" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(448 0)">
+    <use href="#catIdle"/>
+    <path d="M16 50c7-7 11-6 14-2" fill="none" stroke="#18191b" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(512 0)">
+    <use href="#catIdle"/>
+    <path d="M8 55c10-2 26-2 48 0" fill="none" stroke="#18191b" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+</svg>

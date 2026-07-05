@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { DEFAULT_PREFERENCES } from "../src/core/preferences";
+import {
+  DEFAULT_WINDOW_POSITION,
+  MAX_SCALE,
+  MIN_SCALE,
+  applyPetCommand,
+  isPetCommand,
+  type PetCommand
+} from "../src/core/interaction";
+
+test("pet commands update interaction preferences predictably", () => {
+  const paused = applyPetCommand(
+    { preferences: DEFAULT_PREFERENCES, position: DEFAULT_WINDOW_POSITION },
+    { type: "toggle-pause" }
+  );
+
+  assert.equal(paused.preferences.paused, true);
+
+  const playful = applyPetCommand(paused, { type: "set-energy", energy: "playful" });
+  assert.equal(playful.preferences.energy, "playful");
+
+  const muted = applyPetCommand(playful, { type: "toggle-mute" });
+  assert.equal(muted.preferences.muted, true);
+
+  const clickThrough = applyPetCommand(muted, { type: "toggle-click-through" });
+  assert.equal(clickThrough.preferences.clickThrough, true);
+});
+
+test("size commands clamp scale", () => {
+  const base = {
+    preferences: { ...DEFAULT_PREFERENCES, scale: MAX_SCALE },
+    position: DEFAULT_WINDOW_POSITION
+  };
+
+  const larger = applyPetCommand(base, { type: "size-larger" });
+  assert.equal(larger.preferences.scale, MAX_SCALE);
+
+  const smaller = applyPetCommand(
+    { preferences: { ...DEFAULT_PREFERENCES, scale: MIN_SCALE }, position: DEFAULT_WINDOW_POSITION },
+    { type: "size-smaller" }
+  );
+  assert.equal(smaller.preferences.scale, MIN_SCALE);
+});
+
+test("reset position command restores default window placement", () => {
+  const reset = applyPetCommand(
+    { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },
+    { type: "reset-position" }
+  );
+
+  assert.deepEqual(reset.position, DEFAULT_WINDOW_POSITION);
+});
+
+test("native tray exposes every Phase 2 menu command", async () => {
+  const source = await readFile("src-tauri/src/lib.rs", "utf8");
+  const commands: PetCommand[] = [
+    { type: "toggle-pause" },
+    { type: "toggle-mute" },
+    { type: "toggle-click-through" },
+    { type: "set-energy", energy: "calm" },
+    { type: "set-energy", energy: "normal" },
+    { type: "set-energy", energy: "playful" },
+    { type: "size-smaller" },
+    { type: "size-larger" },
+    { type: "reset-position" },
+    { type: "quit" }
+  ];
+
+  for (const command of commands) {
+    assert.equal(isPetCommand(command), true);
+    assert.match(source, new RegExp(commandToMenuId(command)));
+  }
+
+  assert.match(source, /TrayIconBuilder/);
+  assert.match(source, /pawpal:\/\/command/);
+});
+
+function commandToMenuId(command: PetCommand): string {
+  if (command.type === "set-energy") return `energy-${command.energy}`;
+  return command.type;
+}

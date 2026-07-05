@@ -1,23 +1,97 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createInitialPetState, tickPet } from "../core/behavior";
 import { DEFAULT_PREFERENCES } from "../core/preferences";
 import { createSpriteRenderer } from "../core/renderer";
 import type { PetState } from "../core/types";
+import { DEFAULT_WINDOW_POSITION, type InteractionState } from "../core/interaction";
+import {
+  applyWindowState,
+  applyLaunchAtLogin,
+  listenForPetCommands,
+  listenForPetMoves,
+  loadInteractionState,
+  reduceInteractionState,
+  saveInteractionState,
+  sendPetCommandToPet,
+  startPetDrag
+} from "./petWindow";
+import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
+import { ANIMATIONS } from "../core/animations";
+import { SettingsApp } from "./SettingsApp";
 
 const CANVAS_SIZE = 192;
 
 export function PetApp() {
+  const windowLabel = getCurrentWindow().label;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const petState = useRef<PetState>(createInitialPetState());
-  const preferences = useMemo(() => DEFAULT_PREFERENCES, []);
+  const [interaction, setInteraction] = useState<InteractionState>({
+    preferences: DEFAULT_PREFERENCES,
+    position: DEFAULT_WINDOW_POSITION
+  });
 
   useEffect(() => {
+    let disposed = false;
+
+    loadInteractionState()
+      .then((state) => {
+        if (!disposed) setInteraction(state);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (windowLabel === "pet") {
+      void applyWindowState(interaction).catch(() => undefined);
+    }
+    void saveInteractionState(interaction).catch(() => undefined);
+    void applyLaunchAtLogin(interaction.preferences.launchAtLogin).catch(() => undefined);
+  }, [interaction, windowLabel]);
+
+  useEffect(() => {
+    let unlistenCommands: (() => void) | undefined;
+    let unlistenMoves: (() => void) | undefined;
+
+    void listenForPetCommands((command) => {
+      setInteraction((current) => reduceInteractionState(current, command));
+    }).then((unlisten) => {
+      unlistenCommands = unlisten;
+    });
+
+    if (windowLabel === "pet") {
+      void listenForPetMoves((position) => {
+        setInteraction((current) => ({ ...current, position }));
+      }).then((unlisten) => {
+        unlistenMoves = unlisten;
+      });
+    }
+
+    return () => {
+      unlistenCommands?.();
+      unlistenMoves?.();
+    };
+  }, [windowLabel]);
+
+  useEffect(() => {
+    if (windowLabel !== "pet") return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const renderer = createSpriteRenderer(canvas);
+    const soundPlayer = createSoundPlayer();
     let previousTime = performance.now();
     let frameId = 0;
+    let previousCue: string | undefined;
+
+    void loadDefaultSpriteAssets()
+      .then((assets) => renderer.setSpriteAssets(assets))
+      .catch(() => undefined);
 
     const frame = (time: number) => {
       const deltaMs = time - previousTime;
@@ -25,7 +99,7 @@ export function PetApp() {
 
       petState.current = tickPet(petState.current, {
         deltaMs,
-        preferences,
+        preferences: interaction.preferences,
         cursor: null,
         screen: {
           width: window.innerWidth,
@@ -34,12 +108,31 @@ export function PetApp() {
       });
 
       renderer.draw(petState.current);
+
+      const cue = ANIMATIONS[petState.current.behavior]?.soundCue;
+      if (cue && cue !== previousCue) {
+        soundPlayer.play(cue, interaction.preferences.muted);
+      }
+      previousCue = cue;
+
       frameId = requestAnimationFrame(frame);
     };
 
     frameId = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(frameId);
-  }, [preferences]);
+  }, [interaction.preferences, windowLabel]);
+
+  if (windowLabel === "settings") {
+    return (
+      <SettingsApp
+        interaction={interaction}
+        onCommand={(command) => {
+          setInteraction((current) => reduceInteractionState(current, command));
+          void sendPetCommandToPet(command).catch(() => undefined);
+        }}
+      />
+    );
+  }
 
   return (
     <main className="pet-stage" aria-label="PawPal desktop pet">
@@ -48,6 +141,15 @@ export function PetApp() {
         className="pet-canvas"
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
+        style={{
+          width: `${CANVAS_SIZE}px`,
+          height: `${CANVAS_SIZE}px`
+        }}
+        onPointerDown={() => {
+          if (!interaction.preferences.clickThrough) {
+            void startPetDrag().catch(() => undefined);
+          }
+        }}
       />
     </main>
   );
