@@ -8,9 +8,12 @@
     "dev": "tauri dev",
     "dev:vite": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
+    "check": "npm run preflight && npm run typecheck && npm test",
+    "preflight": "node scripts/preflight.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build": "tauri build",
+    "test": "node --test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -24,8 +27,8 @@
     "@tauri-apps/cli": "^2.0.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
+    "@vitejs/plugin-react": "^6.0.3",
     "typescript": "^5.5.4",
-    "vite": "^5.4.0"
+    "vite": "^8.1.3"
   }
 }

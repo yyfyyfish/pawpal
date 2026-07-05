@@ -1,35 +1,73 @@
-# PawPal Roadmap
+# PawPal V1 Phase Roadmap
 
-## v0.1: Playable Mac Prototype
+The V1 implementation is split into seven commits. Each phase should be
+completed with a red/green TDD loop, verified locally, and committed before the
+next phase begins.
+
+## Phase 0: Foundation
 
 - Transparent always-on-top pet window
 - Canvas sprite renderer
-- Idle, walk, sleep, wake, look, meow, scratch, groom
-- Preferences model
-- Menu bar controls
-- Local default cat sprite sheet
-- Local sound hooks
+- Tauri, Vite, React, TypeScript scaffold
+- Preflight checks
+- Test/check scripts
+- Baseline documentation
+- Placeholder cat render loop
 
-## v0.2: Comfort And Control
+## Phase 1: Real Pet Loop
 
-- Settings window
+- Deterministic behavior state machine
+- Seedable scheduler
+- Idle, walk, sleep, wake, look, scratch, groom, meow
+- Movement bounds
+- Cursor-aware facing
+- Unit tests for state transitions
+
+## Phase 2: Window And Interaction Polish
+
+- Click-through toggle
 - Drag-to-place flow
+- Persisted position
+- Menu bar controls
+- Pause, mute, energy, size, reset, quit
+- Fullscreen/Spaces behavior decision
+
+## Phase 3: Art And Audio
+
+- Sprite sheet format
+- Default cat sprite sheet
+- Animation metadata loader
+- Local sound cues
+- Crisp scaling
+- Asset fallback behavior
+
+## Phase 4: Preferences And Settings
+
+- Local preference persistence
 - Energy profiles
-- Better safe-area handling
-- Multi-monitor awareness
-- Launch at login
-- Basic test suite
+- Size control
+- Mute and click-through settings
+- Launch-at-login setting if feasible
+- Settings window if needed
 
-## v0.3: Personality
+## Phase 5: Reliability And macOS Fit
 
-- Mood model
-- Name the cat
-- Time-of-day routines
-- Treat/pet interactions
-- Custom skins
-- Importable sprite sheets
+- Long-run CPU/memory check
+- Multi-monitor handling
+- Dock/menu bar safe areas
+- Laptop sleep/wake handling
+- Full-screen Spaces QA
+- No network calls or unnecessary permissions
 
-## v1.0: Polished Release
+## Phase 6: Brain-Ready Architecture
+
+- BrainProvider interface
+- Typed safe intent model
+- Mock/rule-based brain
+- Future DeepAgent service boundary
+- Guardrail that brain cannot directly control native OS APIs
+
+## Phase 7: V1 Packaging
 
 - Signed and notarized macOS build
 - Onboarding

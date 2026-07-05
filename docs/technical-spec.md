@@ -156,6 +156,26 @@ Example:
 - Manual macOS QA for always-on-top, click-through, menu controls, sleep/wake
 - Long-run idle test for CPU and memory usage
 
+## Brain-Ready Boundary
+
+V1 should not ship a DeepAgent-powered runtime, but it should leave a clean
+integration point for it. The behavior engine can depend on a small
+`BrainProvider` interface that returns safe typed intents, while native OS and
+window APIs remain outside the brain's reach.
+
+Initial intent shape:
+
+```ts
+type CatIntent =
+  | { type: "animate"; behavior: PetBehavior }
+  | { type: "say"; text: string; mood: "cozy" | "curious" | "sleepy" }
+  | { type: "set_energy"; energy: EnergyLevel }
+  | { type: "do_nothing" };
+```
+
+Future DeepAgent work should run behind a local adapter or service boundary and
+map agent output into these intents instead of granting general desktop control.
+
 ## Open Questions
 
 - Should the cat live on the screen floor only, or roam freely?
