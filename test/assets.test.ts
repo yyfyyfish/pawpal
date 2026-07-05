@@ -42,6 +42,17 @@ test("default cat sprite sheet and sound cues are local assets", async () => {
   for (const cue of DEFAULT_SOUND_CUES) {
     await access(`public${cue.path}`, constants.R_OK);
   }
+
+  assert.equal(atlas.animations.meow.soundCue, "meow-soft");
+  assert.equal(atlas.animations.scratch.soundCue, "scratch-soft");
+  assert.equal(atlas.animations.groom.soundCue, "purr-short");
+});
+
+test("pet runtime reads sound cues from loaded sprite assets", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /spriteAssetsRef/);
+  assert.match(source, /atlas\.animations\[petState\.current\.behavior\]\?\.soundCue/);
 });
 
 test("atlas validation reports missing animations and frames", () => {

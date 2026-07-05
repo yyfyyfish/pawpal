@@ -48,14 +48,27 @@ export function SettingsApp({ interaction, onCommand }: SettingsAppProps) {
       </section>
 
       <section className="settings-section settings-toggles">
-        <label>
-          <input
-            type="checkbox"
-            checked={preferences.muted}
-            onChange={() => onCommand({ type: "toggle-mute" })}
-          />
-          <span>Muted</span>
-        </label>
+        <div className="toggle-command-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={preferences.muted}
+              onChange={() => onCommand({ type: "toggle-mute" })}
+            />
+            <span>Muted</span>
+          </label>
+          <button
+            className="inline-command"
+            type="button"
+            onClick={() => {
+              const sound = new Audio("/assets/sounds/meow-soft.wav");
+              sound.volume = 0.8;
+              void sound.play().catch(() => undefined);
+            }}
+          >
+            Test sound
+          </button>
+        </div>
         <label>
           <input
             type="checkbox"

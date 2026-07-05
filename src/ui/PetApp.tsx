@@ -32,6 +32,7 @@ import { loadFrontWindowSurface } from "./nativeSurfaces";
 import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
 import { ANIMATIONS } from "../core/animations";
 import { SettingsApp } from "./SettingsApp";
+import type { SpriteRuntimeAssets } from "../core/renderer";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
@@ -45,6 +46,7 @@ export function PetApp() {
   const windowLabel = getCurrentWindow().label;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const petState = useRef<PetState>(createInitialPetState());
+  const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
     position: DEFAULT_WINDOW_POSITION
@@ -114,7 +116,10 @@ export function PetApp() {
     let migrationElapsedMs = SURFACE_REFRESH_MS;
 
     void loadDefaultSpriteAssets()
-      .then((assets) => renderer.setSpriteAssets(assets))
+      .then((assets) => {
+        spriteAssetsRef.current = assets;
+        renderer.setSpriteAssets(assets);
+      })
       .catch(() => undefined);
 
     const refreshPatrolSurface = () => {
@@ -194,7 +199,9 @@ export function PetApp() {
 
       renderer.draw(petState.current);
 
-      const cue = ANIMATIONS[petState.current.behavior]?.soundCue;
+      const cue =
+        spriteAssetsRef.current?.atlas.animations[petState.current.behavior]?.soundCue ??
+        ANIMATIONS[petState.current.behavior]?.soundCue;
       if (cue && cue !== previousCue) {
         soundPlayer.play(cue, interaction.preferences.muted);
       }
