@@ -10,6 +10,8 @@ export type PetBehavior =
   | "pounce";
 
 export type EnergyLevel = "calm" | "normal" | "playful";
+export type PatrolSurfacePreference = "front-window" | "screen-edge";
+export type PatrolIntensity = "lazy" | "normal" | "busy";
 
 export interface Point {
   x: number;
@@ -28,6 +30,9 @@ export interface PetPreferences {
   energy: EnergyLevel;
   clickThrough: boolean;
   launchAtLogin: boolean;
+  patrolEnabled: boolean;
+  patrolSurfacePreference: PatrolSurfacePreference;
+  patrolIntensity: PatrolIntensity;
 }
 
 export interface PetState {

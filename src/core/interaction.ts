@@ -1,4 +1,10 @@
-import type { EnergyLevel, PetPreferences, Point } from "./types";
+import type {
+  EnergyLevel,
+  PatrolIntensity,
+  PatrolSurfacePreference,
+  PetPreferences,
+  Point
+} from "./types";
 
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 4;
@@ -16,6 +22,14 @@ export type PetCommand =
   | { type: "set-energy"; energy: EnergyLevel }
   | { type: "set-scale"; scale: number }
   | { type: "set-launch-at-login"; launchAtLogin: boolean }
+  | {
+      type: "set-patrol-settings";
+      patrol: {
+        enabled?: boolean;
+        surfacePreference?: PatrolSurfacePreference;
+        intensity?: PatrolIntensity;
+      };
+    }
   | { type: "size-smaller" }
   | { type: "size-larger" }
   | { type: "open-settings" }
@@ -41,6 +55,13 @@ export function applyPetCommand(state: InteractionState, command: PetCommand): I
       return withPreferences(state, { scale: clampScale(command.scale) });
     case "set-launch-at-login":
       return withPreferences(state, { launchAtLogin: command.launchAtLogin });
+    case "set-patrol-settings":
+      return withPreferences(state, {
+        patrolEnabled: command.patrol.enabled ?? state.preferences.patrolEnabled,
+        patrolSurfacePreference:
+          command.patrol.surfacePreference ?? state.preferences.patrolSurfacePreference,
+        patrolIntensity: command.patrol.intensity ?? state.preferences.patrolIntensity
+      });
     case "size-smaller":
       return withPreferences(state, {
         scale: clampScale(state.preferences.scale - SCALE_STEP)
@@ -78,6 +99,8 @@ export function isPetCommand(value: unknown): value is PetCommand {
       return typeof (command as { scale?: unknown }).scale === "number";
     case "set-launch-at-login":
       return typeof (command as { launchAtLogin?: unknown }).launchAtLogin === "boolean";
+    case "set-patrol-settings":
+      return isPatrolSettings((command as { patrol?: unknown }).patrol);
     default:
       return false;
   }
@@ -98,6 +121,26 @@ export function menuIdToCommand(id: string): PetCommand | null {
       return { type: "set-launch-at-login", launchAtLogin: true };
     case "launch-at-login-off":
       return { type: "set-launch-at-login", launchAtLogin: false };
+    case "patrol-on":
+      return { type: "set-patrol-settings", patrol: { enabled: true } };
+    case "patrol-off":
+      return { type: "set-patrol-settings", patrol: { enabled: false } };
+    case "patrol-surface-front-window":
+      return {
+        type: "set-patrol-settings",
+        patrol: { surfacePreference: "front-window" }
+      };
+    case "patrol-surface-screen-edge":
+      return {
+        type: "set-patrol-settings",
+        patrol: { surfacePreference: "screen-edge" }
+      };
+    case "patrol-intensity-lazy":
+      return { type: "set-patrol-settings", patrol: { intensity: "lazy" } };
+    case "patrol-intensity-normal":
+      return { type: "set-patrol-settings", patrol: { intensity: "normal" } };
+    case "patrol-intensity-busy":
+      return { type: "set-patrol-settings", patrol: { intensity: "busy" } };
     case "energy-calm":
       return { type: "set-energy", energy: "calm" };
     case "energy-normal":
@@ -124,4 +167,25 @@ function withPreferences(
 
 function clampScale(scale: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
+}
+
+function isPatrolSettings(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+
+  const settings = value as {
+    enabled?: unknown;
+    surfacePreference?: unknown;
+    intensity?: unknown;
+  };
+
+  return (
+    (settings.enabled === undefined || typeof settings.enabled === "boolean") &&
+    (settings.surfacePreference === undefined ||
+      settings.surfacePreference === "front-window" ||
+      settings.surfacePreference === "screen-edge") &&
+    (settings.intensity === undefined ||
+      settings.intensity === "lazy" ||
+      settings.intensity === "normal" ||
+      settings.intensity === "busy")
+  );
 }

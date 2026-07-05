@@ -7,7 +7,10 @@ export const DEFAULT_PREFERENCES: PetPreferences = {
   scale: 2,
   energy: "normal",
   clickThrough: false,
-  launchAtLogin: false
+  launchAtLogin: false,
+  patrolEnabled: true,
+  patrolSurfacePreference: "front-window",
+  patrolIntensity: "normal"
 };
 
 export function normalizePreferences(value: unknown): PetPreferences {
@@ -27,7 +30,15 @@ export function normalizePreferences(value: unknown): PetPreferences {
     launchAtLogin: booleanOrDefault(
       preferences.launchAtLogin,
       DEFAULT_PREFERENCES.launchAtLogin
-    )
+    ),
+    patrolEnabled: booleanOrDefault(
+      preferences.patrolEnabled,
+      DEFAULT_PREFERENCES.patrolEnabled
+    ),
+    patrolSurfacePreference: normalizePatrolSurfacePreference(
+      preferences.patrolSurfacePreference
+    ),
+    patrolIntensity: normalizePatrolIntensity(preferences.patrolIntensity)
   };
 }
 
@@ -49,6 +60,24 @@ function normalizeEnergy(energy: unknown): PetPreferences["energy"] {
   }
 
   return DEFAULT_PREFERENCES.energy;
+}
+
+function normalizePatrolSurfacePreference(
+  preference: unknown
+): PetPreferences["patrolSurfacePreference"] {
+  if (preference === "front-window" || preference === "screen-edge") {
+    return preference;
+  }
+
+  return DEFAULT_PREFERENCES.patrolSurfacePreference;
+}
+
+function normalizePatrolIntensity(intensity: unknown): PetPreferences["patrolIntensity"] {
+  if (intensity === "lazy" || intensity === "normal" || intensity === "busy") {
+    return intensity;
+  }
+
+  return DEFAULT_PREFERENCES.patrolIntensity;
 }
 
 function booleanOrDefault(value: unknown, fallback: boolean): boolean {

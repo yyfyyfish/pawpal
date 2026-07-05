@@ -78,6 +78,64 @@ export function SettingsApp({ interaction, onCommand }: SettingsAppProps) {
           <span>Launch at login</span>
         </label>
       </section>
+
+      <section className="settings-section settings-toggles">
+        <label>
+          <input
+            type="checkbox"
+            checked={preferences.patrolEnabled}
+            onChange={(event) => {
+              onCommand({
+                type: "set-patrol-settings",
+                patrol: { enabled: event.currentTarget.checked }
+              });
+            }}
+          />
+          <span>Patrol apps</span>
+        </label>
+      </section>
+
+      <section className="settings-section">
+        <div className="segmented-control" aria-label="Patrol surface">
+          {(["front-window", "screen-edge"] as const).map((surfacePreference) => (
+            <button
+              key={surfacePreference}
+              className={
+                preferences.patrolSurfacePreference === surfacePreference ? "active" : ""
+              }
+              type="button"
+              onClick={() => {
+                onCommand({
+                  type: "set-patrol-settings",
+                  patrol: { surfacePreference }
+                });
+              }}
+            >
+              {surfacePreference === "front-window" ? "Apps" : "Screen"}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="segmented-control" aria-label="Patrol intensity">
+          {(["lazy", "normal", "busy"] as const).map((intensity) => (
+            <button
+              key={intensity}
+              className={preferences.patrolIntensity === intensity ? "active" : ""}
+              type="button"
+              onClick={() => {
+                onCommand({
+                  type: "set-patrol-settings",
+                  patrol: { intensity }
+                });
+              }}
+            >
+              {intensity}
+            </button>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

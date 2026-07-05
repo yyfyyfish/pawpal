@@ -31,6 +31,11 @@ import { SettingsApp } from "./SettingsApp";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
+const PATROL_SPEEDS = {
+  lazy: 0.025,
+  normal: 0.045,
+  busy: 0.07
+} as const;
 
 export function PetApp() {
   const windowLabel = getCurrentWindow().label;
@@ -109,6 +114,12 @@ export function PetApp() {
       .catch(() => undefined);
 
     const refreshPatrolSurface = () => {
+      if (!interaction.preferences.patrolEnabled) {
+        activeSurface = null;
+        patrolState = null;
+        return;
+      }
+
       void Promise.all([
         loadFrontWindowSurface(),
         loadScreenEdgePatrolSurfaces(interaction.position)
@@ -117,7 +128,7 @@ export function PetApp() {
           if (fallbackSurfaces.length === 0) return;
 
           const nextSurface = choosePatrolSurface({
-            preferred: "front-window",
+            preferred: interaction.preferences.patrolSurfacePreference,
             frontWindow,
             fallbackSurfaces
           });
@@ -156,12 +167,13 @@ export function PetApp() {
         }
       });
 
-      if (activeSurface) {
+      if (interaction.preferences.patrolEnabled && activeSurface) {
         patrolState ??= createInitialPatrolState(activeSurface);
         const patrolStep = planPatrolStep({
           state: patrolState,
           surface: activeSurface,
-          deltaMs
+          deltaMs,
+          speedPxPerMs: PATROL_SPEEDS[interaction.preferences.patrolIntensity]
         });
         patrolState = patrolStep;
         petState.current = {
@@ -189,7 +201,7 @@ export function PetApp() {
 
     frameId = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(frameId);
-  }, [interaction.preferences, windowLabel]);
+  }, [interaction, windowLabel]);
 
   if (windowLabel === "settings") {
     return (

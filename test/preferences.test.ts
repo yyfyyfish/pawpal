@@ -23,7 +23,10 @@ test("stored preferences are normalized and clamped", () => {
     scale: 99,
     energy: "zoomies",
     clickThrough: false,
-    launchAtLogin: true
+    launchAtLogin: true,
+    patrolEnabled: false,
+    patrolSurfacePreference: "screen-edge",
+    patrolIntensity: "busy"
   });
 
   assert.deepEqual(preferences, {
@@ -31,7 +34,10 @@ test("stored preferences are normalized and clamped", () => {
     muted: true,
     scale: MAX_SCALE,
     clickThrough: false,
-    launchAtLogin: true
+    launchAtLogin: true,
+    patrolEnabled: false,
+    patrolSurfacePreference: "screen-edge",
+    patrolIntensity: "busy"
   });
 
   assert.deepEqual(toStoredPreferences(preferences), preferences);
@@ -51,13 +57,34 @@ test("settings commands can set exact scale and launch-at-login", () => {
     launchAtLogin: true
   });
   assert.equal(autostart.preferences.launchAtLogin, true);
+
+  const patrol = applyPetCommand(autostart, {
+    type: "set-patrol-settings",
+    patrol: {
+      enabled: false,
+      surfacePreference: "screen-edge",
+      intensity: "busy"
+    }
+  });
+  assert.equal(patrol.preferences.patrolEnabled, false);
+  assert.equal(patrol.preferences.patrolSurfacePreference, "screen-edge");
+  assert.equal(patrol.preferences.patrolIntensity, "busy");
 });
 
 test("settings command ids map to typed pet commands", () => {
   const commands: Array<[string, PetCommand]> = [
     ["open-settings", { type: "open-settings" }],
     ["launch-at-login-on", { type: "set-launch-at-login", launchAtLogin: true }],
-    ["launch-at-login-off", { type: "set-launch-at-login", launchAtLogin: false }]
+    ["launch-at-login-off", { type: "set-launch-at-login", launchAtLogin: false }],
+    ["patrol-on", { type: "set-patrol-settings", patrol: { enabled: true } }],
+    ["patrol-off", { type: "set-patrol-settings", patrol: { enabled: false } }],
+    [
+      "patrol-surface-screen-edge",
+      {
+        type: "set-patrol-settings",
+        patrol: { surfacePreference: "screen-edge" }
+      }
+    ]
   ];
 
   for (const [id, command] of commands) {
@@ -77,5 +104,6 @@ test("tauri config and native tray expose the settings window", async () => {
   assert.equal(settingsWindow.visible, false);
   assert.equal(settingsWindow.width >= 320, true);
   assert.match(rust, /open-settings/);
+  assert.match(rust, /patrol-on/);
   assert.match(rust, /tauri_plugin_autostart/);
 });
