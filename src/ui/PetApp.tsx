@@ -21,9 +21,11 @@ import {
   applyLaunchAtLogin,
   listenForPetCommands,
   listenForPetMoves,
+  loadCompanionMemory,
   loadScreenPatrolSurfaces,
   loadInteractionState,
   reduceInteractionState,
+  saveCompanionMemory,
   saveInteractionState,
   sendPetCommandToPet,
   startPetDrag
@@ -40,6 +42,10 @@ import {
   type PettingReaction
 } from "../core/petting";
 import { selectCompanionSoundCue } from "../core/sound";
+import {
+  advanceCompanion,
+  createInitialCompanionState
+} from "../core/companion";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
@@ -57,6 +63,8 @@ export function PetApp() {
   const pettingGesture = useRef(createInitialPettingGestureState());
   const previousPettingTime = useRef(performance.now());
   const lastPettingReaction = useRef<PettingReaction | null>(null);
+  const pendingPettingReaction = useRef<PettingReaction | null>(null);
+  const companionState = useRef(createInitialCompanionState());
   const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
@@ -77,6 +85,26 @@ export function PetApp() {
       disposed = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (windowLabel !== "pet") return;
+
+    let disposed = false;
+    void loadCompanionMemory()
+      .then((memory) => {
+        if (!disposed) {
+          companionState.current = {
+            ...companionState.current,
+            memory
+          };
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+    };
+  }, [windowLabel]);
 
   useEffect(() => {
     if (windowLabel === "pet") {
@@ -229,6 +257,29 @@ export function PetApp() {
         }).catch(() => undefined);
       }
 
+      const companionResult = advanceCompanion(companionState.current, {
+        deltaMs,
+        currentBehavior: petState.current.behavior,
+        energyPreference: interaction.preferences.energy,
+        pettingReaction: pendingPettingReaction.current,
+        restSpotId: patrolState?.targetRestSpot?.id ?? null,
+        nowMs: Date.now()
+      });
+      pendingPettingReaction.current = null;
+      companionState.current = companionResult.state;
+
+      if (companionResult.intent.type === "animate") {
+        petState.current = {
+          ...petState.current,
+          behavior: companionResult.intent.behavior,
+          elapsedInStateMs: 0
+        };
+      }
+
+      if (companionResult.memoryChanged) {
+        void saveCompanionMemory(companionResult.state.memory).catch(() => undefined);
+      }
+
       renderer.draw(petState.current);
 
       const cue =
@@ -298,6 +349,7 @@ export function PetApp() {
 
           if (result.reaction) {
             lastPettingReaction.current = result.reaction;
+            pendingPettingReaction.current = result.reaction;
             petState.current = {
               ...petState.current,
               behavior: pettingReactionToBehavior(result.reaction),

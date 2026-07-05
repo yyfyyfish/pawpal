@@ -1,0 +1,89 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import {
+  advanceCompanion,
+  createInitialCompanionState
+} from "../src/core/companion";
+
+test("companion runtime emits lifelike animation intents from needs", () => {
+  const state = createInitialCompanionState({
+    mind: {
+      energy: 0.18,
+      affection: 0.55,
+      curiosity: 0.45,
+      comfort: 0.6,
+      irritation: 0,
+      sleepPressure: 0.9
+    }
+  });
+
+  const result = advanceCompanion(state, {
+    deltaMs: 1000,
+    currentBehavior: "idle",
+    energyPreference: "normal",
+    nowMs: 1000,
+    random: () => 0.9
+  });
+
+  assert.deepEqual(result.intent, { type: "animate", behavior: "sleep" });
+  assert.ok(result.state.mind.sleepPressure > state.mind.sleepPressure);
+});
+
+test("companion runtime turns petting into memory and animation intent", () => {
+  const state = createInitialCompanionState();
+
+  const result = advanceCompanion(state, {
+    deltaMs: 250,
+    currentBehavior: "idle",
+    energyPreference: "normal",
+    pettingReaction: "pet",
+    nowMs: 2000
+  });
+
+  assert.deepEqual(result.intent, { type: "animate", behavior: "look" });
+  assert.equal(result.state.memory.care.pets, 1);
+  assert.equal(result.state.memory.care.lastInteractionAt, 2000);
+  assert.ok(result.state.mind.affection > state.mind.affection);
+  assert.equal(result.memoryChanged, true);
+});
+
+test("companion runtime records a rest spot only once per sleep stay", () => {
+  let state = createInitialCompanionState();
+
+  let result = advanceCompanion(state, {
+    deltaMs: 1000,
+    currentBehavior: "sleep",
+    energyPreference: "calm",
+    restSpotId: "front-window:Code:center",
+    nowMs: 3000
+  });
+  state = result.state;
+
+  result = advanceCompanion(state, {
+    deltaMs: 1000,
+    currentBehavior: "sleep",
+    energyPreference: "calm",
+    restSpotId: "front-window:Code:center",
+    nowMs: 4000
+  });
+
+  assert.equal(result.state.memory.restSpots["front-window:Code:center"].visits, 1);
+});
+
+test("companion runtime keeps native APIs outside the core boundary", async () => {
+  const source = await readFile("src/core/companion.ts", "utf8");
+
+  assert.doesNotMatch(source, /@tauri-apps/);
+  assert.doesNotMatch(source, /availableMonitors|getCurrentWindow|invoke/);
+});
+
+test("pet app wires companion mind and memory into runtime", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /advanceCompanion/);
+  assert.match(source, /createInitialCompanionState/);
+  assert.match(source, /loadCompanionMemory/);
+  assert.match(source, /saveCompanionMemory/);
+  assert.match(source, /pendingPettingReaction/);
+});
