@@ -20,7 +20,7 @@ import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
 import { ANIMATIONS } from "../core/animations";
 import { SettingsApp } from "./SettingsApp";
 
-const CANVAS_SIZE = 192;
+const BASE_CANVAS_SIZE = 96;
 
 export function PetApp() {
   const windowLabel = getCurrentWindow().label;
@@ -30,6 +30,7 @@ export function PetApp() {
     preferences: DEFAULT_PREFERENCES,
     position: DEFAULT_WINDOW_POSITION
   });
+  const canvasSize = Math.round(BASE_CANVAS_SIZE * interaction.preferences.scale);
 
   useEffect(() => {
     let disposed = false;
@@ -139,11 +140,11 @@ export function PetApp() {
       <canvas
         ref={canvasRef}
         className="pet-canvas"
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
+        width={canvasSize}
+        height={canvasSize}
         style={{
-          width: `${CANVAS_SIZE}px`,
-          height: `${CANVAS_SIZE}px`
+          width: `${canvasSize}px`,
+          height: `${canvasSize}px`
         }}
         onPointerDown={() => {
           if (!interaction.preferences.clickThrough) {

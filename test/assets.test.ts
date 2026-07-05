@@ -61,3 +61,10 @@ test("atlas validation reports missing animations and frames", () => {
     "missing animation idle"
   ]);
 });
+
+test("sprite renderer scales frames continuously with the canvas", async () => {
+  const source = await readFile("src/core/renderer.ts", "utf8");
+
+  assert.match(source, /const scale = Math\.min\(canvas\.width \/ frame\.width, canvas\.height \/ frame\.height\)/);
+  assert.doesNotMatch(source, /Math\.floor\(Math\.min\(canvas\.width \/ frame\.width/);
+});

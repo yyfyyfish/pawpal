@@ -45,6 +45,16 @@ test("size commands clamp scale", () => {
   assert.equal(smaller.preferences.scale, MIN_SCALE);
 });
 
+test("pet canvas size follows the active scale preference", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /interaction\.preferences\.scale/);
+  assert.match(source, /width=\{canvasSize\}/);
+  assert.match(source, /height=\{canvasSize\}/);
+  assert.match(source, /width: `\$\{canvasSize\}px`/);
+  assert.match(source, /height: `\$\{canvasSize\}px`/);
+});
+
 test("reset position command restores default window placement", () => {
   const reset = applyPetCommand(
     { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },

@@ -44,7 +44,7 @@ function drawSprite(
     ? Math.floor(state.elapsedInStateMs / animation.frameMs) % frames.length
     : Math.min(frames.length - 1, Math.floor(state.elapsedInStateMs / animation.frameMs));
   const frame = frames[frameIndex];
-  const scale = Math.floor(Math.min(canvas.width / frame.width, canvas.height / frame.height));
+  const scale = Math.min(canvas.width / frame.width, canvas.height / frame.height);
   const width = frame.width * scale;
   const height = frame.height * scale;
 
