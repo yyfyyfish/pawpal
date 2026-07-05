@@ -33,6 +33,11 @@ import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
 import { ANIMATIONS } from "../core/animations";
 import { SettingsApp } from "./SettingsApp";
 import type { SpriteRuntimeAssets } from "../core/renderer";
+import {
+  createInitialPettingGestureState,
+  pettingReactionToBehavior,
+  updatePettingGesture
+} from "../core/petting";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
@@ -47,6 +52,8 @@ export function PetApp() {
   const windowLabel = getCurrentWindow().label;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const petState = useRef<PetState>(createInitialPetState());
+  const pettingGesture = useRef(createInitialPettingGestureState());
+  const previousPettingTime = useRef(performance.now());
   const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
@@ -262,6 +269,28 @@ export function PetApp() {
         onPointerDown={() => {
           if (!interaction.preferences.clickThrough) {
             void startPetDrag().catch(() => undefined);
+          }
+        }}
+        onPointerMove={(event) => {
+          if (interaction.preferences.clickThrough) return;
+
+          const now = performance.now();
+          const result = updatePettingGesture(pettingGesture.current, {
+            point: {
+              x: event.nativeEvent.offsetX,
+              y: event.nativeEvent.offsetY
+            },
+            deltaMs: now - previousPettingTime.current
+          });
+          previousPettingTime.current = now;
+          pettingGesture.current = result.state;
+
+          if (result.reaction) {
+            petState.current = {
+              ...petState.current,
+              behavior: pettingReactionToBehavior(result.reaction),
+              elapsedInStateMs: 0
+            };
           }
         }}
       />
