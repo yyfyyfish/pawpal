@@ -36,8 +36,10 @@ import type { SpriteRuntimeAssets } from "../core/renderer";
 import {
   createInitialPettingGestureState,
   pettingReactionToBehavior,
-  updatePettingGesture
+  updatePettingGesture,
+  type PettingReaction
 } from "../core/petting";
+import { selectCompanionSoundCue } from "../core/sound";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
@@ -54,6 +56,7 @@ export function PetApp() {
   const petState = useRef<PetState>(createInitialPetState());
   const pettingGesture = useRef(createInitialPettingGestureState());
   const previousPettingTime = useRef(performance.now());
+  const lastPettingReaction = useRef<PettingReaction | null>(null);
   const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
@@ -117,7 +120,7 @@ export function PetApp() {
     const soundPlayer = createSoundPlayer();
     let previousTime = performance.now();
     let frameId = 0;
-    let previousCue: string | undefined;
+    let lastSoundAt = performance.now() - 5_000;
     let activeSurface: PatrolSurface | null = null;
     let activeRestSurface: PatrolSurface | null = null;
     let patrolState: PatrolState | null = null;
@@ -229,12 +232,20 @@ export function PetApp() {
       renderer.draw(petState.current);
 
       const cue =
-        spriteAssetsRef.current?.atlas.animations[petState.current.behavior]?.soundCue ??
-        ANIMATIONS[petState.current.behavior]?.soundCue;
-      if (cue && cue !== previousCue) {
-        soundPlayer.play(cue, interaction.preferences.muted);
+        selectCompanionSoundCue({
+          behavior: petState.current.behavior,
+          atlasCue:
+            spriteAssetsRef.current?.atlas.animations[petState.current.behavior]?.soundCue ??
+            ANIMATIONS[petState.current.behavior]?.soundCue,
+          pettingReaction: lastPettingReaction.current,
+          muted: interaction.preferences.muted,
+          elapsedSinceLastCueMs: time - lastSoundAt
+        });
+      if (cue) {
+        soundPlayer.play(cue, false);
+        lastSoundAt = time;
       }
-      previousCue = cue;
+      lastPettingReaction.current = null;
 
       frameId = requestAnimationFrame(frame);
     };
@@ -286,6 +297,7 @@ export function PetApp() {
           pettingGesture.current = result.state;
 
           if (result.reaction) {
+            lastPettingReaction.current = result.reaction;
             petState.current = {
               ...petState.current,
               behavior: pettingReactionToBehavior(result.reaction),
