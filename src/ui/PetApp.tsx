@@ -262,6 +262,7 @@ export function PetApp() {
     let previousTime = performance.now();
     let frameId = 0;
     let lastSoundAt = performance.now() - 5_000;
+    const lastCueAt = new Map<string, number>();
     let activeSurface: PatrolSurface | null = null;
     let activeRestSurfaces: PatrolSurface[] = [];
     let patrolState: PatrolState | null = null;
@@ -596,19 +597,25 @@ export function PetApp() {
 
       renderer.draw(petState.current);
 
-      const cue =
-        selectCompanionSoundCue({
-          behavior: petState.current.behavior,
-          atlasCue:
-            spriteAssetsRef.current?.atlas.animations[petState.current.behavior]?.soundCue ??
-            ANIMATIONS[petState.current.behavior]?.soundCue,
-          pettingReaction: lastPettingReaction.current,
-          muted: interaction.preferences.muted,
-          elapsedSinceLastCueMs: time - lastSoundAt
-        });
+      const elapsedSinceCueMs = {
+        "purr-short": time - (lastCueAt.get("purr-short") ?? Number.NEGATIVE_INFINITY),
+        "meow-soft": time - (lastCueAt.get("meow-soft") ?? Number.NEGATIVE_INFINITY),
+        "scratch-soft": time - (lastCueAt.get("scratch-soft") ?? Number.NEGATIVE_INFINITY)
+      };
+      const cue = selectCompanionSoundCue({
+        behavior: petState.current.behavior,
+        atlasCue:
+          spriteAssetsRef.current?.atlas.animations[petState.current.behavior]?.soundCue ??
+          ANIMATIONS[petState.current.behavior]?.soundCue,
+        pettingReaction: lastPettingReaction.current,
+        muted: interaction.preferences.muted,
+        elapsedSinceLastCueMs: time - lastSoundAt,
+        elapsedSinceCueMs
+      });
       if (cue) {
         soundPlayer.play(cue, false);
         lastSoundAt = time;
+        lastCueAt.set(cue, time);
       }
       lastPettingReaction.current = null;
 

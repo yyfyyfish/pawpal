@@ -50,6 +50,50 @@ test("sound policy suppresses muted and too-frequent cues", () => {
   );
 });
 
+test("sound policy applies per-cue cooldowns", () => {
+  assert.equal(
+    selectCompanionSoundCue({
+      behavior: "meow",
+      atlasCue: "meow-soft",
+      muted: false,
+      elapsedSinceLastCueMs: 5_000,
+      elapsedSinceCueMs: {
+        "meow-soft": 6_000
+      }
+    }),
+    null
+  );
+  assert.equal(
+    selectCompanionSoundCue({
+      behavior: "look",
+      pettingReaction: "pet",
+      muted: false,
+      elapsedSinceLastCueMs: 5_000,
+      elapsedSinceCueMs: {
+        "meow-soft": 0,
+        "purr-short": 5_000
+      }
+    }),
+    "purr-short"
+  );
+});
+
+test("sound policy keeps scratch reactions rare per cue", () => {
+  assert.equal(
+    selectCompanionSoundCue({
+      behavior: "scratch",
+      pettingReaction: "overstimulated",
+      atlasCue: "scratch-soft",
+      muted: false,
+      elapsedSinceLastCueMs: 5_000,
+      elapsedSinceCueMs: {
+        "scratch-soft": 7_000
+      }
+    }),
+    null
+  );
+});
+
 test("sound policy keeps ordinary animation sounds contextual", () => {
   assert.equal(
     selectCompanionSoundCue({
@@ -89,4 +133,6 @@ test("pet runtime uses contextual sound policy", async () => {
   assert.match(source, /selectCompanionSoundCue/);
   assert.match(source, /lastPettingReaction/);
   assert.match(source, /elapsedSinceLastCueMs/);
+  assert.match(source, /lastCueAt/);
+  assert.match(source, /elapsedSinceCueMs/);
 });
