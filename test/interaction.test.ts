@@ -160,6 +160,7 @@ test("pet app treats user dragging as a new patrol anchor", async () => {
   assert.match(source, /manualDragAnchor/);
   assert.match(source, /manualDragOffset/);
   assert.match(source, /pendingManualDragAnchor/);
+  assert.match(source, /pendingDragReaction/);
   assert.match(source, /commitManualDragAnchor/);
   assert.match(source, /updateManualDrag/);
   assert.match(source, /createAnchoredPatrolState/);
@@ -168,6 +169,7 @@ test("pet app treats user dragging as a new patrol anchor", async () => {
   assert.match(source, /if \(manualDragging\.current\)/);
   assert.match(source, /dragInteractionUntil/);
   assert.match(source, /ignorePettingUntil/);
+  assert.match(source, /dragged: pendingDragReaction\.current/);
   assert.doesNotMatch(source, /startPetDrag/);
   assert.doesNotMatch(source, /isProgrammaticMoveEcho/);
   assert.doesNotMatch(source, /setInteraction\(\(current\) => applyPetMove\(current, position, "drag"\)\)/);

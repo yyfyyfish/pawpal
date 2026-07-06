@@ -86,6 +86,7 @@ export function PetApp() {
   const previousPettingTime = useRef(performance.now());
   const lastPettingReaction = useRef<PettingReaction | null>(null);
   const pendingPettingReaction = useRef<PettingReaction | null>(null);
+  const pendingDragReaction = useRef(false);
   const companionState = useRef(createInitialCompanionState());
   const manualDragging = useRef(false);
   const manualDragOffset = useRef<Point | null>(null);
@@ -135,6 +136,7 @@ export function PetApp() {
     }
 
     manualDragAnchor.current = anchor;
+    pendingDragReaction.current = true;
     dragAnchorVersion.current += 1;
     setInteraction((current) => applyPetMove(current, anchor, "drag"));
   };
@@ -515,10 +517,12 @@ export function PetApp() {
         currentBehavior: petState.current.behavior,
         energyPreference: interaction.preferences.energy,
         pettingReaction: pendingPettingReaction.current,
+        dragged: pendingDragReaction.current,
         restSpotId: patrolState?.targetRestSpot?.id ?? null,
         nowMs: Date.now()
       });
       pendingPettingReaction.current = null;
+      pendingDragReaction.current = false;
       companionState.current = companionResult.state;
 
       if (companionResult.intent.type === "animate") {

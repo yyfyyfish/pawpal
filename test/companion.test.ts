@@ -48,6 +48,24 @@ test("companion runtime turns petting into memory and animation intent", () => {
   assert.equal(result.memoryChanged, true);
 });
 
+test("companion runtime turns dragging into cautious personality state", () => {
+  const state = createInitialCompanionState();
+
+  const result = advanceCompanion(state, {
+    deltaMs: 250,
+    currentBehavior: "idle",
+    energyPreference: "normal",
+    dragged: true,
+    nowMs: 2_500
+  });
+
+  assert.deepEqual(result.intent, { type: "animate", behavior: "scratch" });
+  assert.equal(result.state.memory.care.drags, 1);
+  assert.equal(result.state.memory.care.lastInteractionAt, 2_500);
+  assert.ok(result.state.mind.irritation > state.mind.irritation);
+  assert.equal(result.memoryChanged, true);
+});
+
 test("companion runtime records a rest spot only once per sleep stay", () => {
   let state = createInitialCompanionState();
 

@@ -9,6 +9,7 @@ export interface CareMemory {
   pets: number;
   scratches: number;
   overstimulations: number;
+  drags: number;
   lastInteractionAt: number | null;
 }
 
@@ -24,6 +25,7 @@ export function createInitialCompanionMemory(): CompanionMemory {
       pets: 0,
       scratches: 0,
       overstimulations: 0,
+      drags: 0,
       lastInteractionAt: null
     }
   };
@@ -51,6 +53,20 @@ export function recordRestSpotVisit(
   };
 }
 
+export function recordDragMemory(
+  memory: CompanionMemory,
+  nowMs: number
+): CompanionMemory {
+  return {
+    ...memory,
+    care: {
+      ...memory.care,
+      drags: memory.care.drags + 1,
+      lastInteractionAt: nowMs
+    }
+  };
+}
+
 export function recordPettingMemory(
   memory: CompanionMemory,
   reaction: PettingReaction,
@@ -63,6 +79,7 @@ export function recordPettingMemory(
       scratches: memory.care.scratches + (reaction === "scratch" ? 1 : 0),
       overstimulations:
         memory.care.overstimulations + (reaction === "overstimulated" ? 1 : 0),
+      drags: memory.care.drags,
       lastInteractionAt: nowMs
     }
   };
@@ -141,6 +158,7 @@ function normalizeCare(value: unknown): CareMemory {
     overstimulations: isNonNegativeNumber(care.overstimulations)
       ? Math.floor(care.overstimulations)
       : defaults.overstimulations,
+    drags: isNonNegativeNumber(care.drags) ? Math.floor(care.drags) : defaults.drags,
     lastInteractionAt:
       care.lastInteractionAt === null || isNonNegativeNumber(care.lastInteractionAt)
         ? care.lastInteractionAt

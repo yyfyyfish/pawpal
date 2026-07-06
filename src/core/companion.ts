@@ -6,6 +6,7 @@ import {
 } from "./mind";
 import {
   createInitialCompanionMemory,
+  recordDragMemory,
   recordPettingMemory,
   recordRestSpotVisit,
   type CompanionMemory
@@ -33,6 +34,7 @@ export interface CompanionInput {
   currentBehavior: PetBehavior;
   energyPreference: EnergyLevel;
   pettingReaction?: PettingReaction | null;
+  dragged?: boolean;
   restSpotId?: string | null;
   nowMs: number;
   random?: RandomSource;
@@ -94,6 +96,26 @@ export function advanceCompanion(
     };
   }
 
+  if (input.dragged) {
+    mind = applyDragStress(mind);
+    memory = recordDragMemory(memory, input.nowMs);
+    memoryChanged = true;
+
+    return {
+      state: {
+        mind,
+        memory,
+        lastRecordedRestSpotId,
+        ambientIdleMs: 0
+      },
+      intent: {
+        type: "animate",
+        behavior: "scratch"
+      },
+      memoryChanged
+    };
+  }
+
   if (
     input.currentBehavior === "sleep" &&
     input.restSpotId &&
@@ -149,4 +171,17 @@ function chooseIdleLifeBehavior(random: RandomSource): PetBehavior {
 
 function isAmbientIdleBehavior(behavior: PetBehavior): boolean {
   return behavior === "idle" || behavior === "look" || behavior === "groom";
+}
+
+function applyDragStress(mind: PetMindState): PetMindState {
+  return {
+    ...mind,
+    comfort: clamp01(mind.comfort - 0.06),
+    curiosity: clamp01(mind.curiosity + 0.04),
+    irritation: clamp01(mind.irritation + 0.16)
+  };
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
 }

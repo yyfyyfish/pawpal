@@ -5,6 +5,7 @@ import {
   createInitialCompanionMemory,
   favoriteRestSpotId,
   normalizeCompanionMemory,
+  recordDragMemory,
   recordPettingMemory,
   recordRestSpotVisit
 } from "../src/core/memory";
@@ -34,6 +35,16 @@ test("companion memory records petting and scratching care history", () => {
   assert.equal(memory.care.lastInteractionAt, 3000);
 });
 
+test("companion memory records drag care history", () => {
+  let memory = createInitialCompanionMemory();
+
+  memory = recordDragMemory(memory, 4_000);
+  memory = recordDragMemory(memory, 4_500);
+
+  assert.equal(memory.care.drags, 2);
+  assert.equal(memory.care.lastInteractionAt, 4_500);
+});
+
 test("companion memory normalizes malformed stored data", () => {
   const memory = normalizeCompanionMemory({
     restSpots: {
@@ -53,6 +64,7 @@ test("companion memory normalizes malformed stored data", () => {
   assert.equal(memory.care.pets, 2);
   assert.equal(memory.care.scratches, 0);
   assert.equal(memory.care.overstimulations, 1);
+  assert.equal(memory.care.drags, 0);
 });
 
 test("pet window exposes local companion memory persistence helpers", async () => {
