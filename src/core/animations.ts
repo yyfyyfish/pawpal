@@ -9,5 +9,6 @@ export const ANIMATIONS: Record<string, AnimationDefinition> = {
   meow: { id: "meow", frameMs: 140, loop: false, soundCue: "meow-soft" },
   scratch: { id: "scratch", frameMs: 90, loop: false },
   groom: { id: "groom", frameMs: 130, loop: false },
-  pounce: { id: "pounce", frameMs: 80, loop: false }
+  pounce: { id: "pounce", frameMs: 80, loop: false },
+  perch: { id: "perch", frameMs: 220, loop: true }
 };

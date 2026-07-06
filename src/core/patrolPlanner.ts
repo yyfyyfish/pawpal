@@ -196,7 +196,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         modeMs,
         position: settlePosition,
         frameProgress,
-        behavior: modeMs < SETTLE_DURATION_MS * 0.7 ? "groom" : "look",
+        behavior: "perch",
         facing: state.direction === "right" ? "right" : "left"
       };
     }
@@ -233,7 +233,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       pauseMs: APP_FRAME_SIT_DURATION_MS,
       position: settlePosition,
       frameProgress,
-      behavior: "look",
+      behavior: "perch",
       facing: state.direction === "right" ? "right" : "left"
     };
   }
@@ -352,7 +352,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       ),
       frameProgress,
       pauseMs: 0,
-      behavior: "groom",
+      behavior: "perch",
       facing: state.direction === "right" ? "right" : "left"
     };
   }
@@ -373,7 +373,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         state.modeMs + input.deltaMs
       ),
       frameProgress,
-      behavior: isAppFrameRest && pauseMs > APP_FRAME_SIT_DURATION_MS * 0.55 ? "groom" : "look",
+      behavior: isAppFrameRest ? "perch" : "look",
       facing: state.direction === "right" ? "right" : "left"
     };
   }

@@ -7,7 +7,8 @@ export type PetBehavior =
   | "meow"
   | "scratch"
   | "groom"
-  | "pounce";
+  | "pounce"
+  | "perch";
 
 export type EnergyLevel = "calm" | "normal" | "playful";
 export type PatrolSurfacePreference = "front-window" | "screen-edge";

@@ -19,7 +19,8 @@ const REQUIRED_ANIMATIONS: PetBehavior[] = [
   "meow",
   "scratch",
   "groom",
-  "pounce"
+  "pounce",
+  "perch"
 ];
 
 test("default cat atlas metadata covers every Phase 3 animation", async () => {

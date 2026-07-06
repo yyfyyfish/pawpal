@@ -139,7 +139,7 @@ test("patrol planner settles on a visible app top frame before napping while roa
   });
 
   assert.equal(next.mode, "settling");
-  assert.equal(next.behavior, "groom");
+  assert.equal(next.behavior, "perch");
   assert.equal(next.targetRestSpot?.surfaceId, surface.id);
   assert.ok(next.position.y < surface.walkY);
   assert.ok(next.position.y + 96 > surface.walkY);
@@ -176,7 +176,7 @@ test("patrol planner can sit on a visible app top frame without napping", () => 
   });
 
   assert.equal(settling.mode, "settling");
-  assert.equal(settling.behavior, "groom");
+  assert.equal(settling.behavior, "perch");
   assert.equal(settling.targetRestSpot?.surfaceId, surface.id);
 
   const sitting = planPatrolStep({
@@ -188,7 +188,7 @@ test("patrol planner can sit on a visible app top frame without napping", () => 
   });
 
   assert.equal(sitting.mode, "perching");
-  assert.equal(sitting.behavior, "look");
+  assert.equal(sitting.behavior, "perch");
   assert.ok(sitting.pauseMs > 0);
   assert.deepEqual(sitting.position, settling.position);
 
@@ -224,7 +224,7 @@ test("patrol planner settles when it reaches an app ledge without a lucky rest r
   });
 
   assert.equal(next.mode, "settling");
-  assert.equal(next.behavior, "groom");
+  assert.equal(next.behavior, "perch");
   assert.equal(next.restKind, "sit");
   assert.equal(next.targetRestSpot?.surfaceId, surface.id);
 });
@@ -281,7 +281,7 @@ test("patrol planner keeps app ledge settling visible near the menu bar", () => 
   });
 
   assert.equal(next.mode, "settling");
-  assert.equal(next.behavior, "groom");
+  assert.equal(next.behavior, "perch");
   assert.equal(next.position.y, roamSurface.rect.y);
   assert.ok(next.position.y + 120 > topWindow.walkY);
 });
@@ -302,7 +302,7 @@ test("patrol planner can sleep on a stable app frame rest spot", () => {
   });
 
   assert.equal(next.mode, "settling");
-  assert.equal(next.behavior, "groom");
+  assert.equal(next.behavior, "perch");
   assert.equal(next.targetRestSpot?.kind, "center");
   assert.ok(next.position.y < surface.walkY);
   assert.ok(next.position.y + 96 > surface.walkY);

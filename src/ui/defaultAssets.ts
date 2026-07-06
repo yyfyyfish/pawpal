@@ -16,7 +16,8 @@ const REQUIRED_ANIMATIONS: PetBehavior[] = [
   "meow",
   "scratch",
   "groom",
-  "pounce"
+  "pounce",
+  "perch"
 ];
 
 export async function loadDefaultSpriteAssets(): Promise<SpriteRuntimeAssets> {

@@ -16,7 +16,7 @@ export interface CursorAwarenessResult {
 }
 
 const DEFAULT_CURSOR_WATCH_DISTANCE = 180;
-const NON_INTERRUPTIBLE_BEHAVIORS = new Set<PetBehavior>(["sleep", "wake", "pounce"]);
+const NON_INTERRUPTIBLE_BEHAVIORS = new Set<PetBehavior>(["sleep", "wake", "pounce", "perch"]);
 
 export function selectCursorAwareness(
   input: CursorAwarenessInput
