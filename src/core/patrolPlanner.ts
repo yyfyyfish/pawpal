@@ -38,6 +38,7 @@ export interface PatrolPlannerInput {
   speedPxPerMs?: number;
   petSize?: number;
   restRoll?: number;
+  favoriteRestSpotId?: string | null;
   roamTarget?: Point | null;
   avoidanceZones?: AvoidanceZone[];
   nowMs?: number;
@@ -222,7 +223,8 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       state.position.x,
       petSize,
       avoidanceZones,
-      nowMs
+      nowMs,
+      input.favoriteRestSpotId
     );
 
     if (!restSpot) {
@@ -511,13 +513,22 @@ function chooseRestSpot(
   currentX: number,
   petSize: number,
   avoidanceZones: AvoidanceZone[],
-  nowMs: number
+  nowMs: number,
+  favoriteRestSpotId?: string | null
 ): SurfaceRestSpot | null {
-  const spots = createSurfaceRestSpots(surface)
-    .sort((first, second) => Math.abs(first.x - currentX) - Math.abs(second.x - currentX));
+  const spots = createSurfaceRestSpots(surface);
+  const favoriteSpot = spots.find((spot) => spot.id === favoriteRestSpotId);
+  if (favoriteSpot) {
+    const favoritePosition = positionPetOnSurface(surface, favoriteSpot.x, "sleeping", petSize);
+    if (!overlapsAvoidance(favoritePosition, petSize, avoidanceZones, nowMs)) {
+      return favoriteSpot;
+    }
+  }
 
   return (
-    spots.find((spot) => {
+    spots
+      .sort((first, second) => Math.abs(first.x - currentX) - Math.abs(second.x - currentX))
+      .find((spot) => {
       const position = positionPetOnSurface(surface, spot.x, "sleeping", petSize);
       return !overlapsAvoidance(position, petSize, avoidanceZones, nowMs);
     }) ?? null

@@ -215,6 +215,26 @@ test("patrol planner can sleep on a stable app frame rest spot", () => {
   assert.ok(next.position.y + 96 > surface.walkY);
 });
 
+test("patrol planner prefers a remembered favorite rest spot", () => {
+  const state = {
+    ...createInitialPatrolState(surface),
+    stableSurfaceMs: 9_000,
+    position: { x: surface.minX, y: surface.walkY - 80 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface,
+    deltaMs: 500,
+    petSize: 96,
+    restRoll: 0.03,
+    favoriteRestSpotId: `${surface.id}:right-corner`
+  });
+
+  assert.equal(next.mode, "sleeping");
+  assert.equal(next.targetRestSpot?.id, `${surface.id}:right-corner`);
+});
+
 test("patrol planner avoids typing zones while roaming", () => {
   const typingZone = createTypingAvoidanceZone(
     {

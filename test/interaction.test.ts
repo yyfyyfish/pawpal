@@ -63,6 +63,7 @@ test("patrol runtime uses scaled pet size and timed rest chances", async () => {
   assert.match(source, /restDecisionElapsedMs \+= deltaMs/);
   assert.match(source, /petSize: canvasSize/);
   assert.match(source, /restDecisionElapsedMs >= REST_DECISION_MS \? Math\.random\(\) : undefined/);
+  assert.match(source, /favoriteRestSpotId\(companionState\.current\.memory\)/);
 });
 
 test("patrol runtime keeps front-window surfaces through brief detection gaps", async () => {

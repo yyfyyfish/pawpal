@@ -46,6 +46,7 @@ import {
   type PettingReaction
 } from "../core/petting";
 import { selectCompanionSoundCue } from "../core/sound";
+import { favoriteRestSpotId } from "../core/memory";
 import {
   advanceCompanion,
   createInitialCompanionState
@@ -480,6 +481,7 @@ export function PetApp() {
           restRoll:
             restDecisionElapsedMs >= REST_DECISION_MS ? Math.random() : undefined,
           restSurface: activeRestSurface,
+          favoriteRestSpotId: favoriteRestSpotId(companionState.current.memory),
           roamTarget:
             activeSurface.kind === "screen-roam" && !patrolState.roamTarget
               ? createRandomRoamTarget(activeSurface, canvasSize)
