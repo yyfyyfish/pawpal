@@ -1,7 +1,9 @@
 import {
   chooseCompanionBehavior,
   createInitialPetMindState,
+  selectPetMood,
   tickPetMind,
+  type PetMood,
   type PetMindState
 } from "./mind";
 import {
@@ -24,6 +26,7 @@ export type CompanionIntent =
 
 export interface CompanionState {
   mind: PetMindState;
+  mood: PetMood;
   memory: CompanionMemory;
   lastRecordedRestSpotId: string | null;
   ambientIdleMs: number;
@@ -51,8 +54,11 @@ const IDLE_LIFE_INTERVAL_MS = 4_000;
 export function createInitialCompanionState(
   overrides: Partial<CompanionState> = {}
 ): CompanionState {
+  const mind = overrides.mind ?? createInitialPetMindState();
+
   return {
-    mind: overrides.mind ?? createInitialPetMindState(),
+    mind,
+    mood: overrides.mood ?? selectPetMood(mind),
     memory: overrides.memory ?? createInitialCompanionMemory(),
     lastRecordedRestSpotId: overrides.lastRecordedRestSpotId ?? null,
     ambientIdleMs: overrides.ambientIdleMs ?? 0
@@ -84,6 +90,7 @@ export function advanceCompanion(
     return {
       state: {
         mind,
+        mood: selectPetMood(mind, input.energyPreference),
         memory,
         lastRecordedRestSpotId,
         ambientIdleMs: 0
@@ -104,6 +111,7 @@ export function advanceCompanion(
     return {
       state: {
         mind,
+        mood: selectPetMood(mind, input.energyPreference),
         memory,
         lastRecordedRestSpotId,
         ambientIdleMs: 0
@@ -131,6 +139,7 @@ export function advanceCompanion(
     energyPreference: input.energyPreference,
     random: input.random
   });
+  const mood = selectPetMood(mind, input.energyPreference);
 
   if (!behavior && ambientIdleMs >= IDLE_LIFE_INTERVAL_MS) {
     ambientIdleMs = 0;
@@ -138,13 +147,14 @@ export function advanceCompanion(
     return {
       state: {
         mind,
+        mood,
         memory,
         lastRecordedRestSpotId,
         ambientIdleMs
       },
       intent: {
         type: "animate",
-        behavior: chooseIdleLifeBehavior(input.random ?? Math.random)
+        behavior: chooseIdleLifeBehavior(mood, input.random ?? Math.random)
       },
       memoryChanged
     };
@@ -153,6 +163,7 @@ export function advanceCompanion(
   return {
     state: {
       mind,
+      mood,
       memory,
       lastRecordedRestSpotId,
       ambientIdleMs: behavior ? 0 : ambientIdleMs
@@ -162,11 +173,23 @@ export function advanceCompanion(
   };
 }
 
-function chooseIdleLifeBehavior(random: RandomSource): PetBehavior {
+function chooseIdleLifeBehavior(mood: PetMood, random: RandomSource): PetBehavior {
   const roll = random();
-  if (roll < 0.45) return "look";
-  if (roll < 0.8) return "groom";
-  return "scratch";
+
+  switch (mood) {
+    case "annoyed":
+      return roll < 0.75 ? "scratch" : "look";
+    case "sleepy":
+      return roll < 0.95 ? "sleep" : "perch";
+    case "playful":
+      return roll < 0.7 ? "pounce" : "look";
+    case "cozy":
+      return roll < 0.75 ? "groom" : "perch";
+    case "curious":
+      if (roll < 0.45) return "look";
+      if (roll < 0.8) return "groom";
+      return "scratch";
+  }
 }
 
 function isAmbientIdleBehavior(behavior: PetBehavior): boolean {

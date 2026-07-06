@@ -1,5 +1,7 @@
 import type { EnergyLevel, PetBehavior, RandomSource } from "./types";
 
+export type PetMood = "cozy" | "curious" | "playful" | "sleepy" | "annoyed";
+
 export interface PetMindState {
   energy: number;
   affection: number;
@@ -101,6 +103,27 @@ export function chooseCompanionBehavior(
   }
 
   return null;
+}
+
+export function selectPetMood(
+  state: PetMindState,
+  energyPreference: EnergyLevel = "normal"
+): PetMood {
+  if (state.irritation >= 0.65) return "annoyed";
+  if (state.sleepPressure >= 0.72 || state.energy <= 0.25) return "sleepy";
+  if (
+    energyPreference === "playful" &&
+    state.energy >= 0.6 &&
+    state.curiosity >= 0.62 &&
+    state.irritation <= 0.35
+  ) {
+    return "playful";
+  }
+  if (state.comfort >= 0.78 && state.affection >= 0.45 && state.irritation <= 0.25) {
+    return "cozy";
+  }
+
+  return "curious";
 }
 
 function energyProfile(energy: EnergyLevel): {

@@ -107,6 +107,56 @@ test("companion runtime adds small idle life animations after quiet time", () =>
   assert.equal(result.memoryChanged, false);
 });
 
+test("companion runtime lets visible mood shape idle life animations", () => {
+  const state = createInitialCompanionState({
+    ambientIdleMs: 3_900,
+    mind: {
+      energy: 0.86,
+      affection: 0.55,
+      curiosity: 0.86,
+      comfort: 0.56,
+      irritation: 0.04,
+      sleepPressure: 0.16
+    }
+  });
+
+  const result = advanceCompanion(state, {
+    deltaMs: 200,
+    currentBehavior: "idle",
+    energyPreference: "playful",
+    nowMs: 5_000,
+    random: () => 0.55
+  });
+
+  assert.deepEqual(result.intent, { type: "animate", behavior: "pounce" });
+  assert.equal(result.state.mood, "playful");
+});
+
+test("companion runtime makes sleepy moods visibly settle", () => {
+  const state = createInitialCompanionState({
+    ambientIdleMs: 3_900,
+    mind: {
+      energy: 0.32,
+      affection: 0.55,
+      curiosity: 0.35,
+      comfort: 0.72,
+      irritation: 0.04,
+      sleepPressure: 0.74
+    }
+  });
+
+  const result = advanceCompanion(state, {
+    deltaMs: 200,
+    currentBehavior: "idle",
+    energyPreference: "calm",
+    nowMs: 5_000,
+    random: () => 0.9
+  });
+
+  assert.deepEqual(result.intent, { type: "animate", behavior: "sleep" });
+  assert.equal(result.state.mood, "sleepy");
+});
+
 test("companion runtime resets idle life timing while walking", () => {
   const state = createInitialCompanionState({
     ambientIdleMs: 3_900

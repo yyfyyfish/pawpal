@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   chooseCompanionBehavior,
   createInitialPetMindState,
+  selectPetMood,
   tickPetMind,
   type PetMindState
 } from "../src/core/mind";
@@ -100,6 +101,43 @@ test("companion routine pounces when playful and curious", () => {
   );
 
   assert.equal(behavior, "pounce");
+});
+
+test("pet mood exposes visible personality from hidden needs", () => {
+  assert.equal(
+    selectPetMood({
+      ...createInitialPetMindState(),
+      irritation: 0.78
+    }),
+    "annoyed"
+  );
+  assert.equal(
+    selectPetMood({
+      ...createInitialPetMindState(),
+      energy: 0.22,
+      sleepPressure: 0.76
+    }),
+    "sleepy"
+  );
+  assert.equal(
+    selectPetMood(
+      {
+        ...createInitialPetMindState(),
+        energy: 0.78,
+        curiosity: 0.82
+      },
+      "playful"
+    ),
+    "playful"
+  );
+  assert.equal(
+    selectPetMood({
+      ...createInitialPetMindState(),
+      comfort: 0.84,
+      affection: 0.7
+    }),
+    "cozy"
+  );
 });
 
 test("pet mind drifts toward sleepiness while awake", () => {
