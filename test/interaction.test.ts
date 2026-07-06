@@ -115,6 +115,15 @@ test("pet app smooths patrol movement inside a stable overlay", async () => {
   assert.doesNotMatch(source, /position: patrolStep\.position[\s\S]*applyWindowState/);
 });
 
+test("pet app wires cursor awareness into rendering", async () => {
+  const source = await readFile("src/ui/PetApp.tsx", "utf8");
+
+  assert.match(source, /selectCursorAwareness/);
+  assert.match(source, /cursorPosition/);
+  assert.match(source, /cursor: cursorPosition\.current/);
+  assert.doesNotMatch(source, /cursor: null/);
+});
+
 test("reset position command restores default window placement", () => {
   const reset = applyPetCommand(
     { preferences: DEFAULT_PREFERENCES, position: { x: 999, y: 111 } },

@@ -60,6 +60,7 @@ import {
   isCursorInsidePetHitbox,
   toOverlayLocalPosition
 } from "../core/overlayStage";
+import { selectCursorAwareness } from "../core/cursorAwareness";
 
 const BASE_CANVAS_SIZE = 96;
 const SURFACE_REFRESH_MS = 3_000;
@@ -96,6 +97,7 @@ export function PetApp() {
   const dragSettleTimeout = useRef<number | null>(null);
   const stageOrigin = useRef<Point>({ x: 0, y: 0 });
   const renderedPetPosition = useRef<Point>(DEFAULT_WINDOW_POSITION);
+  const cursorPosition = useRef<Point | null>(null);
   const spriteAssetsRef = useRef<SpriteRuntimeAssets | null>(null);
   const [interaction, setInteraction] = useState<InteractionState>({
     preferences: DEFAULT_PREFERENCES,
@@ -279,24 +281,32 @@ export function PetApp() {
     };
 
     const refreshCursorHandling = () => {
-      if (interaction.preferences.clickThrough) {
-        setCursorIgnoring(true);
-        return;
-      }
-
-      if (manualDragging.current) {
-        setCursorIgnoring(false);
-        return;
-      }
-
       void loadCursorLogicalPosition()
         .then((cursor) => {
           if (disposed) return;
-          setCursorIgnoring(
-            !isCursorInsidePetHitbox(cursor, renderedPetPosition.current, canvasSize)
+          cursorPosition.current = cursor;
+
+          if (interaction.preferences.clickThrough) {
+            setCursorIgnoring(true);
+            return;
+          }
+
+          if (manualDragging.current) {
+            setCursorIgnoring(false);
+            return;
+          }
+
+          const cursorOutsidePet = !isCursorInsidePetHitbox(
+            cursor,
+            renderedPetPosition.current,
+            canvasSize
           );
+          setCursorIgnoring(cursorOutsidePet);
         })
-        .catch(() => setCursorIgnoring(true));
+        .catch(() => {
+          cursorPosition.current = null;
+          setCursorIgnoring(true);
+        });
     };
 
     void loadDefaultSpriteAssets()
@@ -418,7 +428,7 @@ export function PetApp() {
       petState.current = tickPet(petState.current, {
         deltaMs: animationDeltaMs,
         preferences: interaction.preferences,
-        cursor: null,
+        cursor: cursorPosition.current,
         screen: {
           width: window.innerWidth,
           height: window.innerHeight
@@ -521,6 +531,22 @@ export function PetApp() {
 
       if (companionResult.memoryChanged) {
         void saveCompanionMemory(companionResult.state.memory).catch(() => undefined);
+      }
+
+      const cursorAwareness = selectCursorAwareness({
+        currentBehavior: petState.current.behavior,
+        currentFacing: petState.current.facing,
+        cursor: cursorPosition.current,
+        petPosition: petState.current.position,
+        petSize: canvasSize
+      });
+      if (cursorAwareness.aware) {
+        petState.current = {
+          ...petState.current,
+          behavior: cursorAwareness.behavior ?? petState.current.behavior,
+          facing: cursorAwareness.facing,
+          elapsedInStateMs: cursorAwareness.behavior ? 0 : petState.current.elapsedInStateMs
+        };
       }
 
       renderPetAt(petState.current.position);
