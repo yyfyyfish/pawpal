@@ -12,16 +12,22 @@
     "scratch-0": { "x": 384, "y": 0, "width": 64, "height": 64 },
     "groom-0": { "x": 448, "y": 0, "width": 64, "height": 64 },
     "pounce-0": { "x": 512, "y": 0, "width": 64, "height": 64 },
-    "perch-0": { "x": 576, "y": 0, "width": 64, "height": 64 }
+    "perch-0": { "x": 576, "y": 0, "width": 64, "height": 64 },
+    "walk-1": { "x": 640, "y": 0, "width": 64, "height": 64 },
+    "walk-2": { "x": 704, "y": 0, "width": 64, "height": 64 },
+    "sleep-1": { "x": 768, "y": 0, "width": 64, "height": 64 },
+    "wake-1": { "x": 832, "y": 0, "width": 64, "height": 64 },
+    "look-1": { "x": 896, "y": 0, "width": 64, "height": 64 },
+    "scratch-1": { "x": 960, "y": 0, "width": 64, "height": 64 }
   },
   "animations": {
     "idle": { "frames": ["idle-0"], "frameMs": 180, "loop": true },
-    "walk": { "frames": ["walk-0"], "frameMs": 120, "loop": true },
-    "sleep": { "frames": ["sleep-0"], "frameMs": 240, "loop": true },
-    "wake": { "frames": ["wake-0"], "frameMs": 140, "loop": false },
-    "look": { "frames": ["look-0"], "frameMs": 180, "loop": false },
+    "walk": { "frames": ["walk-0", "walk-1", "walk-2", "walk-1"], "frameMs": 120, "loop": true },
+    "sleep": { "frames": ["sleep-0", "sleep-1"], "frameMs": 360, "loop": true },
+    "wake": { "frames": ["wake-0", "wake-1"], "frameMs": 140, "loop": false },
+    "look": { "frames": ["look-0", "look-1"], "frameMs": 220, "loop": false },
     "meow": { "frames": ["meow-0"], "frameMs": 140, "loop": false, "soundCue": "meow-soft" },
-    "scratch": { "frames": ["scratch-0"], "frameMs": 90, "loop": false, "soundCue": "scratch-soft" },
+    "scratch": { "frames": ["scratch-0", "scratch-1"], "frameMs": 90, "loop": false, "soundCue": "scratch-soft" },
     "groom": { "frames": ["groom-0"], "frameMs": 130, "loop": false, "soundCue": "purr-short" },
     "pounce": { "frames": ["pounce-0"], "frameMs": 80, "loop": false },
     "perch": { "frames": ["perch-0"], "frameMs": 220, "loop": true }

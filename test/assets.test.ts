@@ -49,6 +49,16 @@ test("default cat sprite sheet and sound cues are local assets", async () => {
   assert.equal(atlas.animations.groom.soundCue, "purr-short");
 });
 
+test("default cat atlas includes multi-frame motion polish", async () => {
+  const atlas = JSON.parse(await readFile(`public${DEFAULT_CAT_ATLAS_PATH}`, "utf8"));
+
+  assert.ok(atlas.animations.walk.frames.length >= 3);
+  assert.ok(atlas.animations.sleep.frames.length >= 2);
+  assert.ok(atlas.animations.wake.frames.length >= 2);
+  assert.ok(atlas.animations.look.frames.length >= 2);
+  assert.ok(atlas.animations.scratch.frames.length >= 2);
+});
+
 test("pet runtime reads sound cues from loaded sprite assets", async () => {
   const source = await readFile("src/ui/PetApp.tsx", "utf8");
 
