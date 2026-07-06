@@ -79,3 +79,10 @@ test("sprite renderer scales frames continuously with the canvas", async () => {
   assert.match(source, /const scale = Math\.min\(canvas\.width \/ frame\.width, canvas\.height \/ frame\.height\)/);
   assert.doesNotMatch(source, /Math\.floor\(Math\.min\(canvas\.width \/ frame\.width/);
 });
+
+test("sprite renderer stays transparent while sprite assets load", async () => {
+  const source = await readFile("src/core/renderer.ts", "utf8");
+
+  assert.match(source, /if \(!assets\) {\s*return;\s*}/);
+  assert.doesNotMatch(source, /drawPlaceholderCat/);
+});
