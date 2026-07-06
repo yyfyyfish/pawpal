@@ -7,6 +7,7 @@ import {
   type SurfaceRestSpot
 } from "./patrolSurface";
 import {
+  chooseTypingCompanionSpot,
   petRectOverlapsAvoidanceZones,
   type AvoidanceZone
 } from "./typingGuard";
@@ -274,7 +275,8 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       input.surface,
       petSize,
       avoidanceZones,
-      nowMs
+      nowMs,
+      currentOverlapsAvoidance
     );
     const nextPosition = moveToward(
       state.position,
@@ -362,14 +364,42 @@ function safeRoamTarget(
   surface: PatrolSurface,
   petSize: number,
   avoidanceZones: AvoidanceZone[],
-  nowMs: number
+  nowMs: number,
+  preferTypingCompanionSpot: boolean = false
 ): Point {
+  const companionSpot = chooseNearestTypingCompanionSpot(
+    current,
+    surface,
+    petSize,
+    avoidanceZones,
+    nowMs
+  );
+  if (preferTypingCompanionSpot && companionSpot) return companionSpot;
+
   const target = clampToRoamBounds(requestedTarget, surface, petSize);
   if (!overlapsAvoidance(target, petSize, avoidanceZones, nowMs)) return target;
+
+  if (companionSpot) return companionSpot;
 
   return roamEscapeCandidates(surface, petSize)
     .filter((candidate) => !overlapsAvoidance(candidate, petSize, avoidanceZones, nowMs))
     .sort((a, b) => distance(b, current) - distance(a, current))[0] ?? target;
+}
+
+function chooseNearestTypingCompanionSpot(
+  current: Point,
+  surface: PatrolSurface,
+  petSize: number,
+  avoidanceZones: AvoidanceZone[],
+  nowMs: number
+): Point | null {
+  return (
+    avoidanceZones
+      .filter((zone) => zone.reason === "typing" && nowMs < zone.activeUntilMs)
+      .map((zone) => chooseTypingCompanionSpot(zone, surface.rect, petSize))
+      .filter((spot): spot is Point => !!spot)
+      .sort((first, second) => distance(first, current) - distance(second, current))[0] ?? null
+  );
 }
 
 function safePathPoint(

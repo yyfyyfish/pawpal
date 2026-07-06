@@ -70,6 +70,42 @@ export function petRectOverlapsAvoidanceZones(
   });
 }
 
+export function chooseTypingCompanionSpot(
+  zone: AvoidanceZone,
+  bounds: Rect,
+  petSize: number
+): Point | null {
+  const gap = Math.max(24, Math.round(petSize * 0.25));
+  const candidates = [
+    {
+      x: zone.x - petSize - gap,
+      y: zone.y + zone.height / 2 - petSize / 2
+    },
+    {
+      x: zone.x + zone.width + gap,
+      y: zone.y + zone.height / 2 - petSize / 2
+    },
+    {
+      x: zone.x + zone.width / 2 - petSize / 2,
+      y: zone.y - petSize - gap
+    },
+    {
+      x: zone.x + zone.width / 2 - petSize / 2,
+      y: zone.y + zone.height + gap
+    }
+  ].map((candidate) => clampPointToRect(candidate, bounds, petSize));
+
+  return (
+    candidates
+      .filter((candidate) => {
+        return !petRectOverlapsAvoidanceZones(candidate, petSize, [zone], zone.activeUntilMs - 1);
+      })
+      .sort((first, second) => {
+        return distanceToZone(first, zone, petSize) - distanceToZone(second, zone, petSize);
+      })[0] ?? null
+  );
+}
+
 export function rectsOverlap(first: Rect, second: Rect): boolean {
   return (
     first.x < second.x + second.width &&
@@ -77,6 +113,31 @@ export function rectsOverlap(first: Rect, second: Rect): boolean {
     first.y < second.y + second.height &&
     first.y + first.height > second.y
   );
+}
+
+function clampPointToRect(point: Point, rect: Rect, petSize: number): Point {
+  return {
+    x: clamp(point.x, rect.x, rect.x + rect.width - petSize),
+    y: clamp(point.y, rect.y, rect.y + rect.height - petSize)
+  };
+}
+
+function distanceToZone(point: Point, zone: AvoidanceZone, petSize: number): number {
+  const petCenter = {
+    x: point.x + petSize / 2,
+    y: point.y + petSize / 2
+  };
+  const zoneCenter = {
+    x: zone.x + zone.width / 2,
+    y: zone.y + zone.height / 2
+  };
+
+  return Math.hypot(petCenter.x - zoneCenter.x, petCenter.y - zoneCenter.y);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (max < min) return min;
+  return Math.min(max, Math.max(min, value));
 }
 
 function expandRect(rect: Rect, padding: number): Rect {

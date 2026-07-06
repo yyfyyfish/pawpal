@@ -378,12 +378,16 @@ test("patrol planner retreats instead of perching inside a typing zone", () => {
     avoidanceZones: [typingZone]
   });
 
-  assert.equal(next.behavior, "walk");
+  assert.equal(next.behavior, "look");
   assert.notDeepEqual(next.position, state.position);
-  assert.equal(next.pauseMs, 0);
+  assert.equal(next.pauseMs, 500);
   assert.equal(
     petRectOverlapsAvoidanceZones(next.position, 96, [typingZone], 50_100),
     false
+  );
+  assert.ok(
+    Math.abs(next.position.x - typingZone.x) <= 220 ||
+      Math.abs(next.position.y - typingZone.y) <= 220
   );
 });
 

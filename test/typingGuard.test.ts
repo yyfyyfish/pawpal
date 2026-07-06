@@ -4,6 +4,7 @@ import {
   TYPING_GUARD_TTL_MS,
   createTypingAvoidanceZone,
   isAvoidanceZoneActive,
+  chooseTypingCompanionSpot,
   petRectOverlapsAvoidanceZones
 } from "../src/core/typingGuard";
 
@@ -99,4 +100,27 @@ test("pet overlap checks ignore expired avoidance zones", () => {
     petRectOverlapsAvoidanceZones({ x: 300, y: 300 }, 96, [zone], 4_000),
     false
   );
+});
+
+test("typing companion spot stays nearby without covering text", () => {
+  const zone = createTypingAvoidanceZone(
+    {
+      x: 300,
+      y: 260,
+      width: 220,
+      height: 180,
+      source: "focused-element",
+      appName: "Terminal"
+    },
+    { nowMs: 10_000, petSize: 96 }
+  )!;
+  const spot = chooseTypingCompanionSpot(
+    zone,
+    { x: 320, y: 300, width: 760, height: 520 },
+    96
+  );
+
+  assert.ok(spot);
+  assert.equal(petRectOverlapsAvoidanceZones(spot!, 96, [zone], 10_100), false);
+  assert.ok(Math.abs(spot!.x - zone.x) <= 180 || Math.abs(spot!.y - zone.y) <= 180);
 });
