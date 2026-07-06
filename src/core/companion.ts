@@ -25,6 +25,7 @@ export interface CompanionState {
   mind: PetMindState;
   memory: CompanionMemory;
   lastRecordedRestSpotId: string | null;
+  ambientIdleMs: number;
 }
 
 export interface CompanionInput {
@@ -43,13 +44,16 @@ export interface CompanionResult {
   memoryChanged: boolean;
 }
 
+const IDLE_LIFE_INTERVAL_MS = 4_000;
+
 export function createInitialCompanionState(
   overrides: Partial<CompanionState> = {}
 ): CompanionState {
   return {
     mind: overrides.mind ?? createInitialPetMindState(),
     memory: overrides.memory ?? createInitialCompanionMemory(),
-    lastRecordedRestSpotId: overrides.lastRecordedRestSpotId ?? null
+    lastRecordedRestSpotId: overrides.lastRecordedRestSpotId ?? null,
+    ambientIdleMs: overrides.ambientIdleMs ?? 0
   };
 }
 
@@ -66,6 +70,9 @@ export function advanceCompanion(
   let memoryChanged = false;
   let lastRecordedRestSpotId =
     input.currentBehavior === "sleep" ? state.lastRecordedRestSpotId : null;
+  let ambientIdleMs = isAmbientIdleBehavior(input.currentBehavior)
+    ? state.ambientIdleMs + input.deltaMs
+    : 0;
 
   if (input.pettingReaction) {
     mind = applyPettingReaction(mind, input.pettingReaction);
@@ -76,7 +83,8 @@ export function advanceCompanion(
       state: {
         mind,
         memory,
-        lastRecordedRestSpotId
+        lastRecordedRestSpotId,
+        ambientIdleMs: 0
       },
       intent: {
         type: "animate",
@@ -102,13 +110,43 @@ export function advanceCompanion(
     random: input.random
   });
 
+  if (!behavior && ambientIdleMs >= IDLE_LIFE_INTERVAL_MS) {
+    ambientIdleMs = 0;
+
+    return {
+      state: {
+        mind,
+        memory,
+        lastRecordedRestSpotId,
+        ambientIdleMs
+      },
+      intent: {
+        type: "animate",
+        behavior: chooseIdleLifeBehavior(input.random ?? Math.random)
+      },
+      memoryChanged
+    };
+  }
+
   return {
     state: {
       mind,
       memory,
-      lastRecordedRestSpotId
+      lastRecordedRestSpotId,
+      ambientIdleMs: behavior ? 0 : ambientIdleMs
     },
     intent: behavior ? { type: "animate", behavior } : { type: "do_nothing" },
     memoryChanged
   };
+}
+
+function chooseIdleLifeBehavior(random: RandomSource): PetBehavior {
+  const roll = random();
+  if (roll < 0.45) return "look";
+  if (roll < 0.8) return "groom";
+  return "scratch";
+}
+
+function isAmbientIdleBehavior(behavior: PetBehavior): boolean {
+  return behavior === "idle" || behavior === "look" || behavior === "groom";
 }

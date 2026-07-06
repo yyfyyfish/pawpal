@@ -71,6 +71,41 @@ test("companion runtime records a rest spot only once per sleep stay", () => {
   assert.equal(result.state.memory.restSpots["front-window:Code:center"].visits, 1);
 });
 
+test("companion runtime adds small idle life animations after quiet time", () => {
+  const state = createInitialCompanionState({
+    ambientIdleMs: 3_900
+  });
+
+  const result = advanceCompanion(state, {
+    deltaMs: 200,
+    currentBehavior: "look",
+    energyPreference: "normal",
+    nowMs: 5_000,
+    random: () => 0.55
+  });
+
+  assert.deepEqual(result.intent, { type: "animate", behavior: "groom" });
+  assert.equal(result.state.ambientIdleMs, 0);
+  assert.equal(result.memoryChanged, false);
+});
+
+test("companion runtime resets idle life timing while walking", () => {
+  const state = createInitialCompanionState({
+    ambientIdleMs: 3_900
+  });
+
+  const result = advanceCompanion(state, {
+    deltaMs: 500,
+    currentBehavior: "walk",
+    energyPreference: "normal",
+    nowMs: 5_500,
+    random: () => 0
+  });
+
+  assert.deepEqual(result.intent, { type: "do_nothing" });
+  assert.equal(result.state.ambientIdleMs, 0);
+});
+
 test("companion runtime keeps native APIs outside the core boundary", async () => {
   const source = await readFile("src/core/companion.ts", "utf8");
 
