@@ -387,6 +387,30 @@ test("patrol planner prefers a remembered favorite rest spot", () => {
   assert.equal(next.targetRestSpot?.id, `${surface.id}:right-corner`);
 });
 
+test("patrol planner can settle on an app side edge rest spot", () => {
+  const state = {
+    ...createInitialPatrolState(surface),
+    stableSurfaceMs: 9_000,
+    position: { x: surface.maxX, y: surface.walkY + 180 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface,
+    deltaMs: 500,
+    petSize: 96,
+    restRoll: 0.03,
+    favoriteRestSpotId: `${surface.id}:right-edge`
+  });
+
+  assert.equal(next.mode, "settling");
+  assert.equal(next.targetRestSpot?.kind, "right-edge");
+  assert.equal(next.frameEdge, "right");
+  assert.ok(next.position.x > surface.rect.x + surface.rect.width - 48);
+  assert.ok(next.position.y > surface.rect.y);
+  assert.ok(next.position.y < surface.rect.y + surface.rect.height);
+});
+
 test("patrol planner avoids typing zones while roaming", () => {
   const typingZone = createTypingAvoidanceZone(
     {

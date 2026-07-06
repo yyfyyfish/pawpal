@@ -24,7 +24,13 @@ export interface PatrolSurface {
   maxX: number;
 }
 
-export type SurfaceRestSpotKind = "left-corner" | "center" | "right-corner";
+export type SurfaceRestSpotKind =
+  | "left-corner"
+  | "center"
+  | "right-corner"
+  | "right-edge"
+  | "bottom-center"
+  | "left-edge";
 export type SurfacePose = "walking" | "perching" | "sleeping";
 export type SurfacePathEdge = "top" | "right" | "bottom" | "left";
 
@@ -34,6 +40,8 @@ export interface SurfaceRestSpot {
   x: number;
   y: number;
   kind: SurfaceRestSpotKind;
+  edge: SurfacePathEdge;
+  pathProgress: number;
   weight: number;
 }
 
@@ -111,11 +119,59 @@ export function createSurfaceRestSpots(surface: PatrolSurface): SurfaceRestSpot[
   const centerX = surface.minX + (surface.maxX - surface.minX) / 2;
   const leftX = Math.min(surface.maxX, surface.minX + REST_SPOT_EDGE_OFFSET - SURFACE_EDGE_PADDING);
   const rightX = Math.max(surface.minX, surface.maxX - REST_SPOT_EDGE_OFFSET - SURFACE_EDGE_PADDING);
+  const topLength = surface.maxX - surface.minX;
+
+  const topSpots = [
+    createRestSpot(surface, "left-corner", "top", leftX, surface.walkY, leftX - surface.minX, 0.8),
+    createRestSpot(surface, "center", "top", centerX, surface.walkY, centerX - surface.minX, 1),
+    createRestSpot(
+      surface,
+      "right-corner",
+      "top",
+      rightX,
+      surface.walkY,
+      rightX - surface.minX,
+      0.8
+    )
+  ];
+
+  if (surface.kind === "screen-edge") return topSpots;
+
+  const rightLength = surface.rect.height;
+  const bottomLength = topLength;
+  const sideY = Math.round(surface.rect.y + surface.rect.height * 0.38);
+  const sideProgress = surface.rect.height * 0.38;
+  const bottomY = surface.rect.y + surface.rect.height;
 
   return [
-    createRestSpot(surface, "left-corner", leftX, 0.8),
-    createRestSpot(surface, "center", centerX, 1),
-    createRestSpot(surface, "right-corner", rightX, 0.8)
+    ...topSpots,
+    createRestSpot(
+      surface,
+      "right-edge",
+      "right",
+      surface.rect.x + surface.rect.width,
+      sideY,
+      topLength + sideProgress,
+      0.55
+    ),
+    createRestSpot(
+      surface,
+      "bottom-center",
+      "bottom",
+      centerX,
+      bottomY,
+      topLength + rightLength + topLength / 2,
+      0.45
+    ),
+    createRestSpot(
+      surface,
+      "left-edge",
+      "left",
+      surface.rect.x,
+      sideY,
+      topLength + rightLength + bottomLength + (surface.rect.height - sideProgress),
+      0.55
+    )
   ];
 }
 
@@ -245,15 +301,20 @@ function normalizePathProgress(progress: number, length: number): number {
 function createRestSpot(
   surface: PatrolSurface,
   kind: SurfaceRestSpotKind,
+  edge: SurfacePathEdge,
   x: number,
+  y: number,
+  pathProgress: number,
   weight: number
 ): SurfaceRestSpot {
   return {
     id: `${surface.id}:${kind}`,
     surfaceId: surface.id,
     x,
-    y: surface.walkY,
+    y,
     kind,
+    edge,
+    pathProgress,
     weight
   };
 }

@@ -169,7 +169,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       restSurface && state.targetRestSpot
         ? positionPetOnRestSurface(
             restSurface,
-            state.targetRestSpot.x,
+            state.targetRestSpot,
             "perching",
             petSize,
             input.surface
@@ -206,7 +206,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
         restSurface && state.targetRestSpot
           ? positionPetOnRestSurface(
               restSurface,
-              state.targetRestSpot.x,
+              state.targetRestSpot,
               "sleeping",
               petSize,
               input.surface
@@ -318,10 +318,11 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   ) {
     const restSpot = chooseRestSpot(
       appRestSurface,
-      state.position.x,
+      state.position,
       petSize,
       avoidanceZones,
       nowMs,
+      input.surface,
       input.favoriteRestSpotId
     );
 
@@ -345,12 +346,13 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       restKind: chooseRestKind(restRoll),
       position: positionPetOnRestSurface(
         appRestSurface,
-        restSpot.x,
+        restSpot,
         "perching",
         petSize,
         input.surface
       ),
-      frameProgress,
+      frameProgress: restSpot.pathProgress,
+      frameEdge: restSpot.edge,
       pauseMs: 0,
       behavior: "perch",
       facing: state.direction === "right" ? "right" : "left"
@@ -385,10 +387,11 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       appRestSurface && stableSurfaceMs >= MIN_REST_SURFACE_STABLE_MS
         ? chooseRestTarget(
             appRestSurface,
-            state.position.x,
+            state.position,
             petSize,
             avoidanceZones,
             nowMs,
+            input.surface,
             input.favoriteRestSpotId
           )
         : null;
@@ -637,16 +640,23 @@ function clampToLane(position: Point, surface: PatrolSurface, petSize: number): 
 
 function chooseRestSpot(
   surface: PatrolSurface,
-  currentX: number,
+  current: Point,
   petSize: number,
   avoidanceZones: AvoidanceZone[],
   nowMs: number,
+  movementSurface: PatrolSurface,
   favoriteRestSpotId?: string | null
 ): SurfaceRestSpot | null {
   const spots = createSurfaceRestSpots(surface);
   const favoriteSpot = spots.find((spot) => spot.id === favoriteRestSpotId);
   if (favoriteSpot) {
-    const favoritePosition = positionPetOnSurface(surface, favoriteSpot.x, "sleeping", petSize);
+    const favoritePosition = positionPetOnRestSurface(
+      surface,
+      favoriteSpot,
+      "sleeping",
+      petSize,
+      movementSurface
+    );
     if (!overlapsAvoidance(favoritePosition, petSize, avoidanceZones, nowMs)) {
       return favoriteSpot;
     }
@@ -654,32 +664,60 @@ function chooseRestSpot(
 
   return (
     spots
-      .sort((first, second) => Math.abs(first.x - currentX) - Math.abs(second.x - currentX))
+      .sort((first, second) => {
+        const firstPosition = positionPetOnRestSurface(
+          surface,
+          first,
+          "sleeping",
+          petSize,
+          movementSurface
+        );
+        const secondPosition = positionPetOnRestSurface(
+          surface,
+          second,
+          "sleeping",
+          petSize,
+          movementSurface
+        );
+
+        return (
+          distance(firstPosition, current) / first.weight -
+          distance(secondPosition, current) / second.weight
+        );
+      })
       .find((spot) => {
-      const position = positionPetOnSurface(surface, spot.x, "sleeping", petSize);
-      return !overlapsAvoidance(position, petSize, avoidanceZones, nowMs);
-    }) ?? null
+        const position = positionPetOnRestSurface(
+          surface,
+          spot,
+          "sleeping",
+          petSize,
+          movementSurface
+        );
+        return !overlapsAvoidance(position, petSize, avoidanceZones, nowMs);
+      }) ?? null
   );
 }
 
 function chooseRestTarget(
   surface: PatrolSurface,
-  currentX: number,
+  current: Point,
   petSize: number,
   avoidanceZones: AvoidanceZone[],
   nowMs: number,
+  movementSurface: PatrolSurface,
   favoriteRestSpotId?: string | null
 ): Point | null {
   const spot = chooseRestSpot(
     surface,
-    currentX,
+    current,
     petSize,
     avoidanceZones,
     nowMs,
+    movementSurface,
     favoriteRestSpotId
   );
 
-  return spot ? positionPetOnSurface(surface, spot.x, "walking", petSize) : null;
+  return spot ? positionPetOnRestSurface(surface, spot, "walking", petSize, movementSurface) : null;
 }
 
 function chooseRestKind(restRoll: number): PatrolRestKind {
@@ -692,30 +730,32 @@ function isNearRestSurface(
   petSize: number,
   movementSurface: PatrolSurface
 ): boolean {
-  const topFramePosition = positionPetOnRestSurface(
-    surface,
-    position.x,
-    "walking",
-    petSize,
-    movementSurface
-  );
+  const topFramePosition = positionPetOnSurface(surface, position.x, "walking", petSize);
+  const clampedTopFramePosition =
+    movementSurface.kind === "screen-roam"
+      ? clampToRoamBounds(topFramePosition, movementSurface, petSize)
+      : topFramePosition;
   const overlapsHorizontally =
     position.x + petSize > surface.rect.x && position.x < surface.rect.x + surface.rect.width;
 
   return (
     overlapsHorizontally &&
-    Math.abs(position.y - topFramePosition.y) <= REST_SURFACE_PROXIMITY_PX
+    Math.abs(position.y - clampedTopFramePosition.y) <= REST_SURFACE_PROXIMITY_PX
   );
 }
 
 function positionPetOnRestSurface(
   restSurface: PatrolSurface,
-  x: number,
+  restSpot: SurfaceRestSpot,
   pose: SurfacePose,
   petSize: number,
   movementSurface: PatrolSurface
 ): Point {
-  const position = positionPetOnSurface(restSurface, x, pose, petSize);
+  const position =
+    restSpot.edge === "top" && restSurface.kind === "screen-edge"
+      ? positionPetOnSurface(restSurface, restSpot.x, pose, petSize)
+      : positionPetOnSurfacePath(restSurface, restSpot.pathProgress, pose, petSize)
+          .position;
 
   return movementSurface.kind === "screen-roam"
     ? clampToRoamBounds(position, movementSurface, petSize)

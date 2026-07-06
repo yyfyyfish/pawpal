@@ -103,7 +103,7 @@ test("screen roam surface covers the safe monitor area for free patrol", () => {
 });
 
 
-test("window surfaces expose weighted rest spots inside the frame", () => {
+test("window surfaces expose weighted rest spots around the app frame", () => {
   const surface = createWindowTopSurface("front-window:Editor", {
     x: 100,
     y: 80,
@@ -114,13 +114,17 @@ test("window surfaces expose weighted rest spots inside the frame", () => {
   const spots = createSurfaceRestSpots(surface);
 
   assert.deepEqual(
-    spots.map((spot) => [spot.kind, spot.x, spot.y, spot.weight]),
+    spots.map((spot) => [spot.kind, spot.edge, spot.x, spot.y, spot.weight]),
     [
-      ["left-corner", 184, 80, 0.8],
-      ["center", 450, 80, 1],
-      ["right-corner", 668, 80, 0.8]
+      ["left-corner", "top", 184, 80, 0.8],
+      ["center", "top", 450, 80, 1],
+      ["right-corner", "top", 668, 80, 0.8],
+      ["right-edge", "right", 800, 262, 0.55],
+      ["bottom-center", "bottom", 450, 560, 0.45],
+      ["left-edge", "left", 100, 262, 0.55]
     ]
   );
+  assert.ok(spots.every((spot) => typeof spot.pathProgress === "number"));
 });
 
 test("surface pose offsets make the cat overlap an app frame instead of floating on a line", () => {
