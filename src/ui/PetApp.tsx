@@ -83,6 +83,8 @@ const DRAG_SETTLE_MS = 900;
 const DRAG_SESSION_MS = 5_000;
 const PETTING_AFTER_DRAG_SUPPRESS_MS = 900;
 const APP_TARGET_ROLL_THRESHOLD = 0.9;
+const MICRO_REACTION_HOLD_MS = 720;
+const CURSOR_SWIPE_COOLDOWN_MS = 1_400;
 const PATROL_SPEEDS = {
   lazy: 0.025,
   normal: 0.045,
@@ -281,6 +283,13 @@ export function PetApp() {
     let cursorHitTestElapsedMs = CURSOR_HIT_TEST_MS;
     let previousCursorSample: { position: Point; timeMs: number } | null = null;
     let cursorSpeedPxPerMs = 0;
+    let lastCursorSwipeAt = Number.NEGATIVE_INFINITY;
+    let reactionOverride: {
+      behavior: PetState["behavior"];
+      facing: PetState["facing"];
+      startedAtMs: number;
+      untilMs: number;
+    } | null = null;
     let ignoringCursorEvents: boolean | null = null;
 
     const renderPetAt = (position: Point) => {
@@ -547,6 +556,7 @@ export function PetApp() {
         };
       }
 
+      const dragReactionRequested = pendingDragReaction.current;
       const companionResult = advanceCompanion(companionState.current, {
         deltaMs: animationDeltaMs,
         currentBehavior: petState.current.behavior,
@@ -566,6 +576,14 @@ export function PetApp() {
           behavior: companionResult.intent.behavior,
           elapsedInStateMs: 0
         };
+        if (dragReactionRequested && companionResult.intent.behavior === "scratch") {
+          reactionOverride = {
+            behavior: "scratch",
+            facing: petState.current.facing,
+            startedAtMs: time,
+            untilMs: time + MICRO_REACTION_HOLD_MS
+          };
+        }
       }
 
       if (companionResult.memoryChanged) {
@@ -581,11 +599,42 @@ export function PetApp() {
         cursorSpeedPxPerMs
       });
       if (cursorAwareness.aware) {
+        if (
+          cursorAwareness.behavior === "scratch" &&
+          time - lastCursorSwipeAt >= CURSOR_SWIPE_COOLDOWN_MS
+        ) {
+          lastCursorSwipeAt = time;
+          reactionOverride = {
+            behavior: "scratch",
+            facing: cursorAwareness.facing,
+            startedAtMs: time,
+            untilMs: time + MICRO_REACTION_HOLD_MS
+          };
+        }
+
         petState.current = {
           ...petState.current,
-          behavior: cursorAwareness.behavior ?? petState.current.behavior,
+          behavior:
+            cursorAwareness.behavior === "scratch"
+              ? petState.current.behavior
+              : cursorAwareness.behavior ?? petState.current.behavior,
           facing: cursorAwareness.facing,
-          elapsedInStateMs: cursorAwareness.behavior ? 0 : petState.current.elapsedInStateMs
+          elapsedInStateMs:
+            cursorAwareness.behavior && cursorAwareness.behavior !== "scratch"
+              ? 0
+              : petState.current.elapsedInStateMs
+        };
+      }
+
+      if (reactionOverride && time >= reactionOverride.untilMs) {
+        reactionOverride = null;
+      }
+      if (reactionOverride) {
+        petState.current = {
+          ...petState.current,
+          behavior: reactionOverride.behavior,
+          facing: reactionOverride.facing,
+          elapsedInStateMs: Math.max(0, time - reactionOverride.startedAtMs)
         };
       }
 

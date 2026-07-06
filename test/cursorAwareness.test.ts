@@ -50,7 +50,23 @@ test("cursor awareness turns a nearby cursor wiggle into a paw swipe", () => {
   });
 });
 
-test("cursor awareness does not paw swipe while already walking", () => {
+test("cursor awareness lets a walking cat watch a nearby cursor", () => {
+  const awareness = selectCursorAwareness({
+    currentBehavior: "walk",
+    currentFacing: "right",
+    cursor: { x: 210, y: 135 },
+    petPosition: { x: 160, y: 120 },
+    petSize: 96
+  });
+
+  assert.deepEqual(awareness, {
+    aware: true,
+    behavior: "look",
+    facing: "right"
+  });
+});
+
+test("cursor awareness lets a walking cat paw swipe a nearby cursor wiggle", () => {
   const awareness = selectCursorAwareness({
     currentBehavior: "walk",
     currentFacing: "right",
@@ -62,7 +78,7 @@ test("cursor awareness does not paw swipe while already walking", () => {
 
   assert.deepEqual(awareness, {
     aware: true,
-    behavior: undefined,
+    behavior: "scratch",
     facing: "right"
   });
 });

@@ -55,7 +55,7 @@ export function selectCursorAwareness(
   const cursorSpeedPxPerMs = input.cursorSpeedPxPerMs ?? 0;
   const pawSwipeSpeedPxPerMs =
     input.pawSwipeSpeedPxPerMs ?? DEFAULT_PAW_SWIPE_SPEED_PX_PER_MS;
-  if (input.currentBehavior !== "walk" && cursorSpeedPxPerMs >= pawSwipeSpeedPxPerMs) {
+  if (cursorSpeedPxPerMs >= pawSwipeSpeedPxPerMs) {
     return {
       aware: true,
       behavior: "scratch",
@@ -65,7 +65,7 @@ export function selectCursorAwareness(
 
   return {
     aware: true,
-    behavior: input.currentBehavior === "walk" ? undefined : "look",
+    behavior: "look",
     facing
   };
 }
