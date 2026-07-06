@@ -278,6 +278,8 @@ export function PetApp() {
     let typingGuardRefreshInFlight = false;
     let disposed = false;
     let cursorHitTestElapsedMs = CURSOR_HIT_TEST_MS;
+    let previousCursorSample: { position: Point; timeMs: number } | null = null;
+    let cursorSpeedPxPerMs = 0;
     let ignoringCursorEvents: boolean | null = null;
 
     const renderPetAt = (position: Point) => {
@@ -297,6 +299,14 @@ export function PetApp() {
       void loadCursorLogicalPosition()
         .then((cursor) => {
           if (disposed) return;
+          const now = performance.now();
+          cursorSpeedPxPerMs = previousCursorSample
+            ? Math.hypot(
+                cursor.x - previousCursorSample.position.x,
+                cursor.y - previousCursorSample.position.y
+              ) / Math.max(1, now - previousCursorSample.timeMs)
+            : 0;
+          previousCursorSample = { position: cursor, timeMs: now };
           cursorPosition.current = cursor;
 
           if (interaction.preferences.clickThrough) {
@@ -318,6 +328,8 @@ export function PetApp() {
         })
         .catch(() => {
           cursorPosition.current = null;
+          previousCursorSample = null;
+          cursorSpeedPxPerMs = 0;
           setCursorIgnoring(true);
         });
     };
@@ -564,7 +576,8 @@ export function PetApp() {
         currentFacing: petState.current.facing,
         cursor: cursorPosition.current,
         petPosition: petState.current.position,
-        petSize: canvasSize
+        petSize: canvasSize,
+        cursorSpeedPxPerMs
       });
       if (cursorAwareness.aware) {
         petState.current = {

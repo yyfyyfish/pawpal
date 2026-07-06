@@ -7,6 +7,8 @@ export interface CursorAwarenessInput {
   petPosition: Point;
   petSize: number;
   watchDistance?: number;
+  cursorSpeedPxPerMs?: number;
+  pawSwipeSpeedPxPerMs?: number;
 }
 
 export interface CursorAwarenessResult {
@@ -16,6 +18,7 @@ export interface CursorAwarenessResult {
 }
 
 const DEFAULT_CURSOR_WATCH_DISTANCE = 180;
+const DEFAULT_PAW_SWIPE_SPEED_PX_PER_MS = 0.85;
 const NON_INTERRUPTIBLE_BEHAVIORS = new Set<PetBehavior>(["sleep", "wake", "pounce", "perch"]);
 
 export function selectCursorAwareness(
@@ -46,6 +49,17 @@ export function selectCursorAwareness(
     return {
       aware: true,
       facing: input.currentFacing
+    };
+  }
+
+  const cursorSpeedPxPerMs = input.cursorSpeedPxPerMs ?? 0;
+  const pawSwipeSpeedPxPerMs =
+    input.pawSwipeSpeedPxPerMs ?? DEFAULT_PAW_SWIPE_SPEED_PX_PER_MS;
+  if (input.currentBehavior !== "walk" && cursorSpeedPxPerMs >= pawSwipeSpeedPxPerMs) {
+    return {
+      aware: true,
+      behavior: "scratch",
+      facing
     };
   }
 

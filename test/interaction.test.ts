@@ -126,6 +126,7 @@ test("pet app wires cursor awareness into rendering", async () => {
   assert.match(source, /selectCursorAwareness/);
   assert.match(source, /cursorPosition/);
   assert.match(source, /cursor: cursorPosition\.current/);
+  assert.match(source, /cursorSpeedPxPerMs/);
   assert.doesNotMatch(source, /cursor: null/);
 });
 

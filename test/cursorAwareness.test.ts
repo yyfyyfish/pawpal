@@ -33,6 +33,40 @@ test("cursor awareness leaves distant cursor alone", () => {
   });
 });
 
+test("cursor awareness turns a nearby cursor wiggle into a paw swipe", () => {
+  const awareness = selectCursorAwareness({
+    currentBehavior: "idle",
+    currentFacing: "right",
+    cursor: { x: 210, y: 135 },
+    petPosition: { x: 160, y: 120 },
+    petSize: 96,
+    cursorSpeedPxPerMs: 1.2
+  });
+
+  assert.deepEqual(awareness, {
+    aware: true,
+    behavior: "scratch",
+    facing: "right"
+  });
+});
+
+test("cursor awareness does not paw swipe while already walking", () => {
+  const awareness = selectCursorAwareness({
+    currentBehavior: "walk",
+    currentFacing: "right",
+    cursor: { x: 210, y: 135 },
+    petPosition: { x: 160, y: 120 },
+    petSize: 96,
+    cursorSpeedPxPerMs: 1.2
+  });
+
+  assert.deepEqual(awareness, {
+    aware: true,
+    behavior: undefined,
+    facing: "right"
+  });
+});
+
 test("cursor awareness does not interrupt sleep or hop animations", () => {
   for (const behavior of ["sleep", "pounce"] as const) {
     const awareness = selectCursorAwareness({
