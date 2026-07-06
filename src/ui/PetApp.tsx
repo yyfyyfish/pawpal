@@ -7,8 +7,16 @@ import {
   planPatrolStep,
   type PatrolState
 } from "../core/patrolPlanner";
-import { choosePatrolSurface, shouldMigrateSurface } from "../core/patrolSelector";
-import type { PatrolSurface } from "../core/patrolSurface";
+import {
+  choosePatrolSurface,
+  chooseRestSurface,
+  shouldMigrateSurface
+} from "../core/patrolSelector";
+import {
+  createSurfaceRestSpots,
+  positionPetOnSurface,
+  type PatrolSurface
+} from "../core/patrolSurface";
 import { DEFAULT_PREFERENCES } from "../core/preferences";
 import { createSpriteRenderer } from "../core/renderer";
 import type { PetState, Point } from "../core/types";
@@ -33,7 +41,8 @@ import {
 } from "./petWindow";
 import {
   loadFocusedTypingBounds,
-  loadFrontWindowSurface
+  loadFrontWindowSurface,
+  loadVisibleWindowSurfaces
 } from "./nativeSurfaces";
 import { createSoundPlayer, loadDefaultSpriteAssets } from "./defaultAssets";
 import { ANIMATIONS } from "../core/animations";
@@ -73,6 +82,7 @@ const REST_DECISION_MS = 3_000;
 const DRAG_SETTLE_MS = 900;
 const DRAG_SESSION_MS = 5_000;
 const PETTING_AFTER_DRAG_SUPPRESS_MS = 900;
+const APP_TARGET_ROLL_THRESHOLD = 0.9;
 const PATROL_SPEEDS = {
   lazy: 0.025,
   normal: 0.045,
@@ -253,7 +263,7 @@ export function PetApp() {
     let frameId = 0;
     let lastSoundAt = performance.now() - 5_000;
     let activeSurface: PatrolSurface | null = null;
-    let activeRestSurface: PatrolSurface | null = null;
+    let activeRestSurfaces: PatrolSurface[] = [];
     let patrolState: PatrolState | null = null;
     let visiblePatrolPosition: Point | null = null;
     let refreshElapsedMs = SURFACE_REFRESH_MS;
@@ -322,7 +332,7 @@ export function PetApp() {
     const refreshPatrolSurface = () => {
       if (!interaction.preferences.patrolEnabled) {
         activeSurface = null;
-        activeRestSurface = null;
+        activeRestSurfaces = [];
         patrolState = null;
         frontWindowMissingMs = 0;
         return;
@@ -334,13 +344,17 @@ export function PetApp() {
       const surfaceAnchor = renderedPetPosition.current;
       void Promise.all([
         loadFrontWindowSurface(),
+        loadVisibleWindowSurfaces(),
         loadScreenPatrolSurfaces(surfaceAnchor)
       ])
-        .then(([frontWindow, fallbackSurfaces]) => {
+        .then(([frontWindow, visibleWindowSurfaces, fallbackSurfaces]) => {
           if (fallbackSurfaces.length === 0) return;
-          frontWindowMissingMs = frontWindow ? 0 : frontWindowMissingMs + SURFACE_REFRESH_MS;
-          activeRestSurface =
-            interaction.preferences.patrolSurfacePreference === "front-window" ? frontWindow : null;
+          activeRestSurfaces =
+            interaction.preferences.patrolSurfacePreference === "front-window"
+              ? mergeRestSurfaces(frontWindow, visibleWindowSurfaces)
+              : [];
+          frontWindowMissingMs =
+            activeRestSurfaces.length > 0 ? 0 : frontWindowMissingMs + SURFACE_REFRESH_MS;
 
           const nextSurface = choosePatrolSurface({
             preferred: interaction.preferences.patrolSurfacePreference,
@@ -473,6 +487,12 @@ export function PetApp() {
         const activeTypingAvoidanceZones = interaction.preferences.typingGuardEnabled
           ? typingAvoidanceZones
           : [];
+        const favoriteSpotId = favoriteRestSpotId(companionState.current.memory);
+        const restSurface = chooseRestSurface(
+          activeRestSurfaces,
+          patrolState.position,
+          favoriteSpotId
+        );
         const patrolStep = planPatrolStep({
           state: patrolState,
           surface: activeSurface,
@@ -480,11 +500,11 @@ export function PetApp() {
           petSize: canvasSize,
           restRoll:
             restDecisionElapsedMs >= REST_DECISION_MS ? Math.random() : undefined,
-          restSurface: activeRestSurface,
-          favoriteRestSpotId: favoriteRestSpotId(companionState.current.memory),
+          restSurface,
+          favoriteRestSpotId: favoriteSpotId,
           roamTarget:
             activeSurface.kind === "screen-roam" && !patrolState.roamTarget
-              ? createRandomRoamTarget(activeSurface, canvasSize)
+              ? createRandomRoamTarget(activeSurface, canvasSize, restSurface)
               : undefined,
           avoidanceZones: activeTypingAvoidanceZones,
           nowMs: time,
@@ -654,9 +674,35 @@ export function PetApp() {
   );
 }
 
-function createRandomRoamTarget(surface: PatrolSurface, petSize: number) {
+function createRandomRoamTarget(
+  surface: PatrolSurface,
+  petSize: number,
+  restSurface?: PatrolSurface | null
+) {
+  if (restSurface && Math.random() < APP_TARGET_ROLL_THRESHOLD) {
+    const restSpots = createSurfaceRestSpots(restSurface);
+    const restSpot = restSpots[Math.floor(Math.random() * restSpots.length)] ?? restSpots[0];
+    if (restSpot) {
+      return positionPetOnSurface(restSurface, restSpot.x, "walking", petSize);
+    }
+  }
+
   return {
     x: surface.rect.x + Math.random() * Math.max(0, surface.rect.width - petSize),
     y: surface.rect.y + Math.random() * Math.max(0, surface.rect.height - petSize)
   };
+}
+
+function mergeRestSurfaces(
+  frontWindow: PatrolSurface | null,
+  visibleWindowSurfaces: PatrolSurface[]
+): PatrolSurface[] {
+  const surfaces = frontWindow ? [frontWindow, ...visibleWindowSurfaces] : visibleWindowSurfaces;
+  const byId = new Map<string, PatrolSurface>();
+
+  for (const surface of surfaces) {
+    byId.set(surface.id, surface);
+  }
+
+  return [...byId.values()];
 }

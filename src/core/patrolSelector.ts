@@ -1,4 +1,5 @@
 import type { PatrolSurface } from "./patrolSurface";
+import type { Point } from "./types";
 
 export type PatrolSurfacePreference = "front-window" | "screen-edge";
 
@@ -49,4 +50,35 @@ export function shouldMigrateSurface(
     currentSurfaceId !== nextSurfaceId &&
     elapsedSinceMigrationMs >= SURFACE_MIGRATION_COOLDOWN_MS
   );
+}
+
+export function chooseRestSurface(
+  surfaces: PatrolSurface[],
+  position: Point,
+  favoriteRestSpotId?: string | null
+): PatrolSurface | null {
+  if (surfaces.length === 0) return null;
+
+  if (favoriteRestSpotId) {
+    const favorite = surfaces.find((surface) => favoriteRestSpotId.startsWith(`${surface.id}:`));
+    if (favorite) return favorite;
+  }
+
+  return surfaces
+    .slice()
+    .sort(
+      (first, second) =>
+        distanceToSurface(first, position) - distanceToSurface(second, position)
+    )[0] ?? null;
+}
+
+function distanceToSurface(surface: PatrolSurface, position: Point): number {
+  const nearestX = clamp(position.x, surface.rect.x, surface.rect.x + surface.rect.width);
+  const nearestY = clamp(position.y, surface.rect.y, surface.rect.y + surface.rect.height);
+
+  return Math.hypot(position.x - nearestX, position.y - nearestY);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

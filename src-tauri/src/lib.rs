@@ -38,6 +38,7 @@ pub fn run() {
         ))
         .invoke_handler(tauri::generate_handler![
             frontmost_window_bounds,
+            visible_window_bounds,
             focused_typing_bounds
         ])
         .setup(|app| {
@@ -61,6 +62,13 @@ async fn frontmost_window_bounds() -> Option<NativeWindowBounds> {
         .await
         .ok()
         .flatten()
+}
+
+#[tauri::command]
+async fn visible_window_bounds() -> Vec<NativeWindowBounds> {
+    tauri::async_runtime::spawn_blocking(query_visible_window_bounds)
+        .await
+        .unwrap_or_default()
 }
 
 #[tauri::command]
@@ -118,6 +126,54 @@ end tell
     }
 
     parse_window_bounds(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn query_visible_window_bounds() -> Vec<NativeWindowBounds> {
+    let script = r#"
+tell application "System Events"
+  set windowRows to {}
+  repeat with appProcess in application processes
+    try
+      set appName to name of appProcess
+      if appName is not "PawPal" and appName is not "pawpal" and visible of appProcess is true then
+        repeat with candidateWindow in windows of appProcess
+          try
+            set isFullScreen to false
+            try
+              set isFullScreen to value of attribute "AXFullScreen" of candidateWindow
+            end try
+            set isMinimized to false
+            try
+              set isMinimized to value of attribute "AXMinimized" of candidateWindow
+            end try
+            set windowPosition to position of candidateWindow
+            set windowSize to size of candidateWindow
+            set windowWidth to item 1 of windowSize
+            set windowHeight to item 2 of windowSize
+            if isFullScreen is false and isMinimized is false and windowWidth > 120 and windowHeight > 120 then
+              set windowX to item 1 of windowPosition
+              set windowY to item 2 of windowPosition
+              set end of windowRows to appName & tab & windowX & tab & windowY & tab & windowWidth & tab & windowHeight
+            end if
+          end try
+        end repeat
+      end if
+    end try
+  end repeat
+  set AppleScript's text item delimiters to linefeed
+  return windowRows as text
+end tell
+"#;
+    let output = match Command::new("osascript").arg("-e").arg(script).output() {
+        Ok(output) => output,
+        Err(_) => return Vec::new(),
+    };
+
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    parse_window_bounds_list(&String::from_utf8_lossy(&output.stdout))
 }
 
 fn query_focused_typing_bounds() -> Option<NativeTypingBounds> {
@@ -198,6 +254,14 @@ fn parse_window_bounds(value: &str) -> Option<NativeWindowBounds> {
     })
 }
 
+fn parse_window_bounds_list(value: &str) -> Vec<NativeWindowBounds> {
+    value
+        .lines()
+        .filter_map(parse_window_bounds)
+        .take(24)
+        .collect()
+}
+
 fn parse_typing_bounds(value: &str) -> Option<NativeTypingBounds> {
     let parts: Vec<&str> = value.trim().split('\t').collect();
     if parts.len() != 7 {
@@ -242,7 +306,7 @@ fn configure_pet_window(window: &WebviewWindow) {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_typing_bounds, parse_window_bounds};
+    use super::{parse_typing_bounds, parse_window_bounds, parse_window_bounds_list};
 
     #[test]
     fn parses_front_window_bounds() {
@@ -253,6 +317,17 @@ mod tests {
         assert_eq!(bounds.width, 900.0);
         assert_eq!(bounds.height, 600.0);
         assert_eq!(bounds.app_name.as_deref(), Some("Safari"));
+    }
+
+    #[test]
+    fn parses_visible_window_bounds_list() {
+        let bounds =
+            parse_window_bounds_list("Safari\t10\t20\t900\t600\nNotes\t80\t120\t640\t480\n");
+
+        assert_eq!(bounds.len(), 2);
+        assert_eq!(bounds[0].app_name.as_deref(), Some("Safari"));
+        assert_eq!(bounds[1].app_name.as_deref(), Some("Notes"));
+        assert_eq!(bounds[1].x, 80.0);
     }
 
     #[test]
@@ -273,8 +348,10 @@ mod tests {
     #[test]
     fn rejects_invalid_typing_bounds() {
         assert!(parse_typing_bounds("Terminal\twindow\t120\t220\t640\t180\tAXTextArea").is_none());
-        assert!(parse_typing_bounds("Terminal\tfocused-element\t120\t220\t0\t180\tAXTextArea")
-            .is_none());
+        assert!(
+            parse_typing_bounds("Terminal\tfocused-element\t120\t220\t0\t180\tAXTextArea")
+                .is_none()
+        );
         assert!(parse_typing_bounds("Terminal\tfocused-element\t120\t220\t640").is_none());
     }
 }

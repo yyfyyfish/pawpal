@@ -3,7 +3,8 @@ import test from "node:test";
 import {
   createScreenEdgeSurface,
   createScreenRoamSurface,
-  createWindowTopSurface
+  createWindowTopSurface,
+  positionPetOnSurface
 } from "../src/core/patrolSurface";
 import { getSafeArea } from "../src/core/screen";
 import {
@@ -120,7 +121,7 @@ test("patrol planner hops before walking after a surface change", () => {
   assert.equal(walk.behavior, "walk");
 });
 
-test("patrol planner can sit on a visible app top frame while roaming", () => {
+test("patrol planner settles on a visible app top frame before napping while roaming", () => {
   const state = {
     ...createInitialPatrolState(roamSurface),
     stableSurfaceMs: 9_000,
@@ -137,11 +138,184 @@ test("patrol planner can sit on a visible app top frame while roaming", () => {
     restRoll: 0.03
   });
 
-  assert.equal(next.mode, "sleeping");
-  assert.equal(next.behavior, "sleep");
+  assert.equal(next.mode, "settling");
+  assert.equal(next.behavior, "groom");
   assert.equal(next.targetRestSpot?.surfaceId, surface.id);
   assert.ok(next.position.y < surface.walkY);
   assert.ok(next.position.y + 96 > surface.walkY);
+
+  const sleeping = planPatrolStep({
+    state: next,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 2_500,
+    petSize: 96
+  });
+
+  assert.equal(sleeping.mode, "sleeping");
+  assert.equal(sleeping.behavior, "sleep");
+  assert.equal(sleeping.targetRestSpot?.surfaceId, surface.id);
+  assert.ok(sleeping.position.y + 96 > surface.walkY);
+});
+
+test("patrol planner can sit on a visible app top frame without napping", () => {
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    stableSurfaceMs: 9_000,
+    position: { x: 320, y: 280 },
+    roamTarget: { x: 900, y: 600 }
+  };
+
+  const settling = planPatrolStep({
+    state,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 500,
+    petSize: 96,
+    restRoll: 0.06
+  });
+
+  assert.equal(settling.mode, "settling");
+  assert.equal(settling.behavior, "groom");
+  assert.equal(settling.targetRestSpot?.surfaceId, surface.id);
+
+  const sitting = planPatrolStep({
+    state: settling,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 2_500,
+    petSize: 96
+  });
+
+  assert.equal(sitting.mode, "perching");
+  assert.equal(sitting.behavior, "look");
+  assert.ok(sitting.pauseMs > 0);
+  assert.deepEqual(sitting.position, settling.position);
+
+  const stillSitting = planPatrolStep({
+    state: sitting,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 500,
+    petSize: 96
+  });
+
+  assert.equal(stillSitting.mode, "perching");
+  assert.deepEqual(stillSitting.position, sitting.position);
+});
+
+test("patrol planner settles when it reaches an app ledge without a lucky rest roll", () => {
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    stableSurfaceMs: 9_000,
+    mode: "perching" as const,
+    pauseMs: 500,
+    position: positionPetOnSurface(surface, 320, "walking", 96),
+    roamTarget: null
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 250,
+    petSize: 96,
+    restRoll: 0.99
+  });
+
+  assert.equal(next.mode, "settling");
+  assert.equal(next.behavior, "groom");
+  assert.equal(next.restKind, "sit");
+  assert.equal(next.targetRestSpot?.surfaceId, surface.id);
+});
+
+test("patrol planner routes roaming cats toward visible app ledges before random targets", () => {
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    stableSurfaceMs: 2_000,
+    position: { x: 980, y: 640 },
+    roamTarget: { x: 1280, y: 760 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    restSurface: surface,
+    deltaMs: 1_000,
+    petSize: 96,
+    speedPxPerMs: 0.08
+  });
+
+  assert.notDeepEqual(next.roamTarget, state.roamTarget);
+  assert.ok(next.roamTarget);
+  assert.ok(
+    Math.abs(next.roamTarget.y - positionPetOnSurface(surface, next.roamTarget.x, "walking", 96).y) <
+      36
+  );
+  assert.ok(next.position.x < state.position.x);
+  assert.ok(next.position.y < state.position.y);
+});
+
+test("patrol planner keeps app ledge settling visible near the menu bar", () => {
+  const topWindow = createWindowTopSurface("visible-window:Code", {
+    x: 6,
+    y: 33,
+    width: 1092,
+    height: 923
+  });
+  const state = {
+    ...createInitialPatrolState(roamSurface),
+    stableSurfaceMs: 2_000,
+    position: positionPetOnSurface(topWindow, 966, "walking", 120),
+    mode: "perching" as const,
+    pauseMs: 300
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface: roamSurface,
+    restSurface: topWindow,
+    deltaMs: 250,
+    petSize: 120,
+    restRoll: 0.99
+  });
+
+  assert.equal(next.mode, "settling");
+  assert.equal(next.behavior, "groom");
+  assert.equal(next.position.y, roamSurface.rect.y);
+  assert.ok(next.position.y + 120 > topWindow.walkY);
+});
+
+test("patrol planner can sleep on a stable app frame rest spot", () => {
+  const state = {
+    ...createInitialPatrolState(surface),
+    stableSurfaceMs: 9_000,
+    position: { x: 300, y: surface.walkY - 80 }
+  };
+
+  const next = planPatrolStep({
+    state,
+    surface,
+    deltaMs: 500,
+    petSize: 96,
+    restRoll: 0.03
+  });
+
+  assert.equal(next.mode, "settling");
+  assert.equal(next.behavior, "groom");
+  assert.equal(next.targetRestSpot?.kind, "center");
+  assert.ok(next.position.y < surface.walkY);
+  assert.ok(next.position.y + 96 > surface.walkY);
+
+  const sleeping = planPatrolStep({
+    state: next,
+    surface,
+    deltaMs: 2_500,
+    petSize: 96
+  });
+
+  assert.equal(sleeping.mode, "sleeping");
+  assert.equal(sleeping.behavior, "sleep");
 });
 
 test("patrol planner moves around an app frame instead of only along one line", () => {
@@ -193,28 +367,6 @@ test("patrol planner can pause without leaving the lane", () => {
   assert.deepEqual(next.position, state.position);
 });
 
-test("patrol planner can sleep on a stable app frame rest spot", () => {
-  const state = {
-    ...createInitialPatrolState(surface),
-    stableSurfaceMs: 9_000,
-    position: { x: 300, y: surface.walkY - 80 }
-  };
-
-  const next = planPatrolStep({
-    state,
-    surface,
-    deltaMs: 500,
-    petSize: 96,
-    restRoll: 0.03
-  });
-
-  assert.equal(next.mode, "sleeping");
-  assert.equal(next.behavior, "sleep");
-  assert.equal(next.targetRestSpot?.kind, "center");
-  assert.ok(next.position.y < surface.walkY);
-  assert.ok(next.position.y + 96 > surface.walkY);
-});
-
 test("patrol planner prefers a remembered favorite rest spot", () => {
   const state = {
     ...createInitialPatrolState(surface),
@@ -231,7 +383,7 @@ test("patrol planner prefers a remembered favorite rest spot", () => {
     favoriteRestSpotId: `${surface.id}:right-corner`
   });
 
-  assert.equal(next.mode, "sleeping");
+  assert.equal(next.mode, "settling");
   assert.equal(next.targetRestSpot?.id, `${surface.id}:right-corner`);
 });
 
@@ -328,7 +480,7 @@ test("patrol planner chooses an unblocked rest spot while typing is active", () 
     avoidanceZones: [typingZone]
   });
 
-  assert.equal(next.mode, "sleeping");
+  assert.equal(next.mode, "settling");
   assert.notEqual(next.targetRestSpot?.kind, "center");
   assert.equal(
     petRectOverlapsAvoidanceZones(next.position, 96, [typingZone], 30_200),

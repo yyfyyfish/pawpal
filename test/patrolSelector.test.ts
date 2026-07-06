@@ -5,7 +5,11 @@ import {
   createScreenRoamSurface,
   createWindowTopSurface
 } from "../src/core/patrolSurface";
-import { choosePatrolSurface, shouldMigrateSurface } from "../src/core/patrolSelector";
+import {
+  choosePatrolSurface,
+  chooseRestSurface,
+  shouldMigrateSurface
+} from "../src/core/patrolSelector";
 import { getSafeArea } from "../src/core/screen";
 
 const safeArea = getSafeArea({
@@ -85,4 +89,46 @@ test("surface migration waits until the target changes and cooldown has elapsed"
   assert.equal(shouldMigrateSurface("screen-bottom", "front-window:Safari", 10_000), true);
   assert.equal(shouldMigrateSurface("screen-bottom", "front-window:Safari", 500), false);
   assert.equal(shouldMigrateSurface("front-window:Safari", "front-window:Safari", 10_000), false);
+});
+
+test("rest surface selector chooses nearby visible app windows", () => {
+  const notes = createWindowTopSurface("visible-window:Notes", {
+    x: 80,
+    y: 120,
+    width: 480,
+    height: 420
+  });
+  const browser = createWindowTopSurface("visible-window:Browser", {
+    x: 900,
+    y: 140,
+    width: 420,
+    height: 420
+  });
+
+  const selected = chooseRestSurface([notes, browser], { x: 980, y: 180 });
+
+  assert.equal(selected?.id, browser.id);
+});
+
+test("rest surface selector prefers remembered app rest spots", () => {
+  const notes = createWindowTopSurface("visible-window:Notes", {
+    x: 80,
+    y: 120,
+    width: 480,
+    height: 420
+  });
+  const browser = createWindowTopSurface("visible-window:Browser", {
+    x: 900,
+    y: 140,
+    width: 420,
+    height: 420
+  });
+
+  const selected = chooseRestSurface(
+    [notes, browser],
+    { x: 120, y: 140 },
+    "visible-window:Browser:center"
+  );
+
+  assert.equal(selected?.id, browser.id);
 });

@@ -66,10 +66,10 @@ test("patrol runtime uses scaled pet size and timed rest chances", async () => {
   assert.match(source, /favoriteRestSpotId\(companionState\.current\.memory\)/);
 });
 
-test("patrol runtime keeps front-window surfaces through brief detection gaps", async () => {
+test("patrol runtime keeps app rest surfaces through brief detection gaps", async () => {
   const source = await readFile("src/ui/PetApp.tsx", "utf8");
 
-  assert.match(source, /frontWindowMissingMs = frontWindow \? 0 : frontWindowMissingMs \+ SURFACE_REFRESH_MS/);
+  assert.match(source, /frontWindowMissingMs =\s*activeRestSurfaces\.length > 0 \? 0 : frontWindowMissingMs \+ SURFACE_REFRESH_MS/);
   assert.match(source, /currentSurface: activeSurface/);
   assert.match(source, /frontWindowMissingMs/);
 });
@@ -78,9 +78,13 @@ test("patrol runtime roams the screen and treats apps as rest surfaces", async (
   const source = await readFile("src/ui/PetApp.tsx", "utf8");
 
   assert.match(source, /loadScreenPatrolSurfaces/);
-  assert.match(source, /activeRestSurface/);
+  assert.match(source, /loadVisibleWindowSurfaces/);
+  assert.match(source, /activeRestSurfaces/);
+  assert.match(source, /chooseRestSurface/);
+  assert.match(source, /mergeRestSurfaces/);
   assert.match(source, /patrolSurfaceRefreshInFlight/);
-  assert.match(source, /restSurface: activeRestSurface/);
+  assert.match(source, /restSurface/);
+  assert.match(source, /APP_TARGET_ROLL_THRESHOLD/);
   assert.match(source, /createRandomRoamTarget/);
 });
 

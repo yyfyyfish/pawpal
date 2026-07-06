@@ -27,10 +27,6 @@ export function selectCompanionSoundCue(input: CompanionSoundInput): string | nu
     return input.atlasCue ?? "meow-soft";
   }
 
-  if (input.behavior === "scratch") {
-    return input.atlasCue ?? "scratch-soft";
-  }
-
   if (input.behavior === "groom") {
     const random = input.random ?? Math.random;
     return random() < 0.45 ? input.atlasCue ?? "purr-short" : null;

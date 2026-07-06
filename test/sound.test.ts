@@ -71,6 +71,18 @@ test("sound policy keeps ordinary animation sounds contextual", () => {
   );
 });
 
+test("sound policy does not loop scratch cue from animation state alone", () => {
+  assert.equal(
+    selectCompanionSoundCue({
+      behavior: "scratch",
+      atlasCue: "scratch-soft",
+      muted: false,
+      elapsedSinceLastCueMs: 5_000
+    }),
+    null
+  );
+});
+
 test("pet runtime uses contextual sound policy", async () => {
   const source = await readFile("src/ui/PetApp.tsx", "utf8");
 

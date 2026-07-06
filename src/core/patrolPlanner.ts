@@ -4,7 +4,8 @@ import {
   positionPetOnSurfacePath,
   type SurfacePathEdge,
   type PatrolSurface,
-  type SurfaceRestSpot
+  type SurfaceRestSpot,
+  type SurfacePose
 } from "./patrolSurface";
 import {
   chooseTypingCompanionSpot,
@@ -14,7 +15,14 @@ import {
 import type { PetBehavior, PetState, Point } from "./types";
 
 export type PatrolDirection = "left" | "right";
-export type PatrolMode = "walking" | "perching" | "hopping" | "sleeping" | "waking";
+export type PatrolMode =
+  | "walking"
+  | "perching"
+  | "hopping"
+  | "settling"
+  | "sleeping"
+  | "waking";
+export type PatrolRestKind = "sit" | "nap";
 
 export interface PatrolState {
   surfaceId: string;
@@ -25,6 +33,7 @@ export interface PatrolState {
   modeMs: number;
   stableSurfaceMs: number;
   targetRestSpot: SurfaceRestSpot | null;
+  restKind: PatrolRestKind | null;
   frameProgress: number;
   frameEdge: SurfacePathEdge;
   roamTarget: Point | null;
@@ -51,14 +60,19 @@ export interface PatrolStep extends PatrolState {
 
 const DEFAULT_PATROL_SPEED_PX_PER_MS = 0.045;
 const DEFAULT_PET_SIZE = 96;
-const MIN_SLEEP_SURFACE_STABLE_MS = 8_000;
-const SLEEP_ROLL_THRESHOLD = 0.08;
+const MIN_REST_SURFACE_STABLE_MS = 1_000;
+const REST_ROLL_THRESHOLD = 0.08;
+const NAP_ROLL_THRESHOLD = 0.04;
 const PERCH_DURATION_MS = 1_400;
+const APP_FRAME_SIT_DURATION_MS = 12_000;
+const SETTLE_DURATION_MS = 2_200;
+const REST_SURFACE_PROXIMITY_PX = 96;
 const SLEEP_DURATION_MS = 5_000;
 const WAKE_DURATION_MS = 700;
 const DRAG_ANCHOR_PAUSE_MS = 1_500;
 const HOP_DURATION_MS = 520;
 const AVOIDANCE_RETREAT_SPEED_MULTIPLIER = 4;
+const APP_REST_APPROACH_SPEED_MULTIPLIER = 2.6;
 
 export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
   return {
@@ -70,6 +84,7 @@ export function createInitialPatrolState(surface: PatrolSurface): PatrolState {
     modeMs: 0,
     stableSurfaceMs: 0,
     targetRestSpot: null,
+    restKind: null,
     frameProgress: 0,
     frameEdge: "top",
     roamTarget: null
@@ -147,6 +162,82 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     };
   }
 
+  if (state.mode === "settling") {
+    const modeMs = state.modeMs + input.deltaMs;
+    const restSurface = resolveRestSurface(state, input.surface, appRestSurface);
+    const settlePosition =
+      restSurface && state.targetRestSpot
+        ? positionPetOnRestSurface(
+            restSurface,
+            state.targetRestSpot.x,
+            "perching",
+            petSize,
+            input.surface
+          )
+        : state.position;
+
+    if (currentOverlapsAvoidance) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        mode: "waking",
+        modeMs: 0,
+        position: settlePosition,
+        frameProgress,
+        behavior: "wake",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
+    if (modeMs < SETTLE_DURATION_MS) {
+      return {
+        ...state,
+        stableSurfaceMs,
+        modeMs,
+        position: settlePosition,
+        frameProgress,
+        behavior: modeMs < SETTLE_DURATION_MS * 0.7 ? "groom" : "look",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
+    if (state.restKind === "nap") {
+      const sleepPosition =
+        restSurface && state.targetRestSpot
+          ? positionPetOnRestSurface(
+              restSurface,
+              state.targetRestSpot.x,
+              "sleeping",
+              petSize,
+              input.surface
+            )
+          : settlePosition;
+
+      return {
+        ...state,
+        stableSurfaceMs,
+        mode: "sleeping",
+        modeMs: 0,
+        position: sleepPosition,
+        frameProgress,
+        behavior: "sleep",
+        facing: state.direction === "right" ? "right" : "left"
+      };
+    }
+
+    return {
+      ...state,
+      stableSurfaceMs,
+      mode: "perching",
+      modeMs: 0,
+      pauseMs: APP_FRAME_SIT_DURATION_MS,
+      position: settlePosition,
+      frameProgress,
+      behavior: "look",
+      facing: state.direction === "right" ? "right" : "left"
+    };
+  }
+
   if (state.mode === "sleeping") {
     if (currentOverlapsAvoidance) {
       return {
@@ -206,6 +297,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       mode: "walking",
       modeMs: 0,
       targetRestSpot: null,
+      restKind: null,
       position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
       frameProgress,
       behavior: "walk",
@@ -213,10 +305,16 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     };
   }
 
+  const restRoll = input.restRoll ?? 1;
+  const reachedAppRestSurface =
+    !!appRestSurface &&
+    state.mode === "perching" &&
+    !state.targetRestSpot &&
+    isNearRestSurface(state.position, appRestSurface, petSize, input.surface);
   if (
     appRestSurface &&
-    stableSurfaceMs >= MIN_SLEEP_SURFACE_STABLE_MS &&
-    (input.restRoll ?? 1) < SLEEP_ROLL_THRESHOLD
+    stableSurfaceMs >= MIN_REST_SURFACE_STABLE_MS &&
+    (restRoll < REST_ROLL_THRESHOLD || reachedAppRestSurface)
   ) {
     const restSpot = chooseRestSpot(
       appRestSurface,
@@ -241,27 +339,41 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     return {
       ...state,
       stableSurfaceMs,
-      mode: "sleeping",
+      mode: "settling",
       modeMs: 0,
       targetRestSpot: restSpot,
-      position: positionPetOnSurface(appRestSurface, restSpot.x, "sleeping", petSize),
+      restKind: chooseRestKind(restRoll),
+      position: positionPetOnRestSurface(
+        appRestSurface,
+        restSpot.x,
+        "perching",
+        petSize,
+        input.surface
+      ),
       frameProgress,
       pauseMs: 0,
-      behavior: "sleep",
+      behavior: "groom",
       facing: state.direction === "right" ? "right" : "left"
     };
   }
 
   if (state.pauseMs > 0 && !currentOverlapsAvoidance) {
+    const pauseMs = Math.max(0, state.pauseMs - input.deltaMs);
+    const isAppFrameRest = !!state.targetRestSpot;
+
     return {
       ...state,
       stableSurfaceMs,
-      position: input.surface.kind === "screen-roam" ? state.position : lanePosition,
-      pauseMs: Math.max(0, state.pauseMs - input.deltaMs),
+      position:
+        input.surface.kind === "screen-roam" || isAppFrameRest ? state.position : lanePosition,
+      pauseMs,
       mode: "perching",
-      modeMs: Math.min(PERCH_DURATION_MS, state.modeMs + input.deltaMs),
+      modeMs: Math.min(
+        isAppFrameRest ? APP_FRAME_SIT_DURATION_MS : PERCH_DURATION_MS,
+        state.modeMs + input.deltaMs
+      ),
       frameProgress,
-      behavior: "look",
+      behavior: isAppFrameRest && pauseMs > APP_FRAME_SIT_DURATION_MS * 0.55 ? "groom" : "look",
       facing: state.direction === "right" ? "right" : "left"
     };
   }
@@ -269,8 +381,19 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
   const speed = input.speedPxPerMs ?? DEFAULT_PATROL_SPEED_PX_PER_MS;
 
   if (input.surface.kind === "screen-roam") {
+    const appRestTarget =
+      appRestSurface && stableSurfaceMs >= MIN_REST_SURFACE_STABLE_MS
+        ? chooseRestTarget(
+            appRestSurface,
+            state.position.x,
+            petSize,
+            avoidanceZones,
+            nowMs,
+            input.favoriteRestSpotId
+          )
+        : null;
     const requestedTarget =
-      state.roamTarget ?? input.roamTarget ?? screenRoamFallbackTarget(input.surface);
+      appRestTarget ?? state.roamTarget ?? input.roamTarget ?? screenRoamFallbackTarget(input.surface);
     const target = safeRoamTarget(
       requestedTarget,
       state.position,
@@ -285,6 +408,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       clampToRoamBounds(target, input.surface, petSize),
       input.deltaMs *
         speed *
+        (appRestTarget ? APP_REST_APPROACH_SPEED_MULTIPLIER : 1) *
         (currentOverlapsAvoidance ? AVOIDANCE_RETREAT_SPEED_MULTIPLIER : 1),
       input.surface,
       petSize
@@ -300,6 +424,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       modeMs: 0,
       stableSurfaceMs,
       targetRestSpot: null,
+      restKind: null,
       frameProgress: 0,
       frameEdge: "top",
       roamTarget: reachedTarget ? null : target,
@@ -328,6 +453,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
       modeMs: 0,
       stableSurfaceMs,
       targetRestSpot: null,
+      restKind: null,
       frameProgress: pathPoint.progress,
       frameEdge: pathPoint.edge,
       roamTarget: null,
@@ -352,6 +478,7 @@ export function planPatrolStep(input: PatrolPlannerInput): PatrolStep {
     modeMs: 0,
     stableSurfaceMs,
     targetRestSpot: null,
+    restKind: null,
     frameProgress: 0,
     frameEdge: "top",
     roamTarget: null,
@@ -533,4 +660,75 @@ function chooseRestSpot(
       return !overlapsAvoidance(position, petSize, avoidanceZones, nowMs);
     }) ?? null
   );
+}
+
+function chooseRestTarget(
+  surface: PatrolSurface,
+  currentX: number,
+  petSize: number,
+  avoidanceZones: AvoidanceZone[],
+  nowMs: number,
+  favoriteRestSpotId?: string | null
+): Point | null {
+  const spot = chooseRestSpot(
+    surface,
+    currentX,
+    petSize,
+    avoidanceZones,
+    nowMs,
+    favoriteRestSpotId
+  );
+
+  return spot ? positionPetOnSurface(surface, spot.x, "walking", petSize) : null;
+}
+
+function chooseRestKind(restRoll: number): PatrolRestKind {
+  return restRoll < NAP_ROLL_THRESHOLD ? "nap" : "sit";
+}
+
+function isNearRestSurface(
+  position: Point,
+  surface: PatrolSurface,
+  petSize: number,
+  movementSurface: PatrolSurface
+): boolean {
+  const topFramePosition = positionPetOnRestSurface(
+    surface,
+    position.x,
+    "walking",
+    petSize,
+    movementSurface
+  );
+  const overlapsHorizontally =
+    position.x + petSize > surface.rect.x && position.x < surface.rect.x + surface.rect.width;
+
+  return (
+    overlapsHorizontally &&
+    Math.abs(position.y - topFramePosition.y) <= REST_SURFACE_PROXIMITY_PX
+  );
+}
+
+function positionPetOnRestSurface(
+  restSurface: PatrolSurface,
+  x: number,
+  pose: SurfacePose,
+  petSize: number,
+  movementSurface: PatrolSurface
+): Point {
+  const position = positionPetOnSurface(restSurface, x, pose, petSize);
+
+  return movementSurface.kind === "screen-roam"
+    ? clampToRoamBounds(position, movementSurface, petSize)
+    : position;
+}
+
+function resolveRestSurface(
+  state: PatrolState,
+  surface: PatrolSurface,
+  restSurface: PatrolSurface | null
+): PatrolSurface | null {
+  if (!state.targetRestSpot) return null;
+  if (restSurface?.id === state.targetRestSpot.surfaceId) return restSurface;
+  if (surface.id === state.targetRestSpot.surfaceId) return surface;
+  return null;
 }
